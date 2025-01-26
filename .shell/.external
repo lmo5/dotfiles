@@ -1,0 +1,15 @@
+# Load kube-ps1 for Kubernetes prompt
+if [ -f ~/.scripts/kube-ps1.sh ]; then
+    source ~/.scripts/kube-ps1.sh
+fi
+
+# Load git-prompt for Git status in prompt
+if [ -f ~/.scripts/git-prompt.sh ]; then
+    source ~/.scripts/git-prompt.sh
+    export GIT_PS1_SHOWDIRTYSTATE=1
+fi
+
+# Load kubectl aliases
+if [ -f ~/.scripts/.kubectl_aliases ]; then
+    source ~/.scripts/.kubectl_aliases
+fi

@@ -1,0 +1,30 @@
+if [ -n "$BASH_VERSION" ]; then
+    if [ -f /usr/share/bash-completion/bash_completion ]; then
+        . /usr/share/bash-completion/bash_completion
+    elif [ -f /etc/bash_completion ]; then
+        . /etc/bash_completion
+    fi
+
+    # Git completions for Bash
+    if [ -f /usr/share/bash-completion/completions/git ]; then
+        source /usr/share/bash-completion/completions/git
+    fi
+
+    # Docker completions for Bash
+    if [ -f /usr/share/bash-completion/completions/docker ]; then
+        source /usr/share/bash-completion/completions/docker
+    fi
+
+    # Kubernetes completions for Bash
+    if [ -f /usr/share/bash-completion/completions/kubectl ]; then
+        source /usr/share/bash-completion/completions/kubectl
+        
+    fi
+    if [ -f /usr/share/bash-completion/completions/kubectx ]; then
+        source /usr/share/bash-completion/completions/kubectx
+    fi
+    if [ -f /usr/share/bash-completion/completions/kubens ]; then
+        source /usr/share/bash-completion/completions/kubens
+    fi
+    source <(kubectl completion bash)
+fi
