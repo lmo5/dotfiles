@@ -1,233 +1,366 @@
-# ~/.aliases
+# # Common aliases
+# alias ll='ls -lF'
+# alias la='ls -alF'
+# alias lt='ls -ltrF'
+# alias lls='ls -alSrF'
+# alias llt='ls -altrF'
 
-# Common aliases
-alias ll='ls -lF'
-alias la='ls -alF'
-alias lt='ls -ltrF'
-alias lls='ls -alSrF'
-alias llt='ls -altrF'
+# # Git aliases
+# alias g='git'
+# alias gs='git status'
+# alias ga='git add'
+# alias gc='git commit'
+# alias gcm='git commit -m'
+# alias gco='git checkout'
+# alias gd='git diff'
+# alias gl='git log'
+# alias gp='git pull'
+# alias gpu='git push'
 
-# Git aliases
-alias g='git'
-alias gs='git status'
-alias ga='git add'
-alias gc='git commit'
-alias gcm='git commit -m'
-alias gco='git checkout'
-alias gd='git diff'
-alias gl='git log'
-alias gp='git pull'
-alias gpu='git push'
+# # Directory navigation
+# alias ..='cd ..'
+# alias ...='cd ../..'
+# alias ....='cd ../../..'
 
-# Directory navigation
+# # Safety nets
+# alias rm='rm -i'
+# alias cp='cp -i'
+# alias mv='mv -i'
+
+# # Kubernetes aliases
+# alias k='kubectl'
+# alias kg='kubectl get'
+# alias kd='kubectl describe'
+# alias ka='kubectl apply'
+# alias kdel='kubectl delete'
+# alias klogs='kubectl logs'
+# alias kexec='kubectl exec -it'
+
+# # Docker aliases
+# alias d='docker'
+# alias dps='docker ps'
+# alias dim='docker images'
+# alias drm='docker rm'
+# alias drmi='docker rmi'
+# alias dcu='docker-compose up'
+# alias dcd='docker-compose down'
+
+
+
+# alias vimdiff="lvim -d"
+# alias gst='git status'
+# alias kubedir='eval "$(ktk -e)"'
+# alias ls='ls --color'
+# alias rm='rm -i'
+# alias ip='ip -c'
+# alias aws='aws --endpoint https://s3.unistra.fr'
+# alias t='tmux new-window'
+# alias kcx='kubectx'
+# alias kns='. knsd'
+# alias kd='. kubedir'
+# alias watch='viddy --shell-options "--login" -c -d'
+# alias ssh='tssh'
+# alias s5cmd='s5cmd --endpoint-url https://s3.unistra.fr'
+# alias ktp='kubectl top pod'
+# alias ktn='kubectl top node'
+# alias PegaseVersion='kubectl pegase release'
+# alias kpeg='kubectl-pegase'
+# alias krew='kubectl-krew'
+# alias kice='kubectl-ice'
+# alias kapi='kubectl-deprecations'
+# alias kns='. knsd'
+# alias kubens='ktk -t -C'
+# alias tk='ktk'
+# alias vim='lvim'
+
+# # This command is used a LOT both below and in daily life
+# alias k=kubectl
+# alias kg='kubectl get'
+# # Execute a kubectl command against all namespaces
+# alias kca='_kca(){ kubectl "$@" --all-namespaces;  unset -f _kca; }; _kca'
+
+# # Apply a YML file
+# alias kaf='kubectl apply -f'
+
+# # Drop into an interactive terminal on a container
+# alias keti='kubectl exec -ti'
+
+# # Manage configuration quickly to switch contexts between local, dev ad staging.
+# alias kcuc='kubectl config use-context'
+# alias kcsc='kubectl config set-context'
+# alias kcdc='kubectl config delete-context'
+# alias kccc='kubectl config current-context'
+
+# # List all contexts
+# alias kcgc='kubectl config get-contexts'
+
+# # General aliases
+# alias kdel='kubectl delete'
+# alias kdelf='kubectl delete -f'
+
+# # Pod management.
+# alias kgp='kubectl get pods'
+# alias kgpa='kubectl get pods --all-namespaces'
+# alias kgpw='kgp --watch'
+# alias kgpwide='kgp -o wide'
+# alias kep='kubectl edit pods'
+# alias kdp='kubectl describe pods'
+# alias kdelp='kubectl delete pods'
+
+# # get pod by label: kgpl "app=myapp" -n myns
+# alias kgpl='kgp -l'
+
+# # get pod by namespace: kgpn kube-system"
+# alias kgpn='kgp -n'
+
+# # Service management.
+# alias kgs='kubectl get svc'
+# alias kgsa='kubectl get svc --all-namespaces'
+# alias kgsw='kgs --watch'
+# alias kgswide='kgs -o wide'
+# alias kes='kubectl edit svc'
+# alias kds='kubectl describe svc'
+# alias kdels='kubectl delete svc'
+
+# # Ingress management
+# alias kgi='kubectl get ingress'
+# alias kgia='kubectl get ingress --all-namespaces'
+# alias kei='kubectl edit ingress'
+# alias kdi='kubectl describe ingress'
+# alias kdeli='kubectl delete ingress'
+
+# # Namespace management
+# alias kgns='kubectl get namespaces'
+# alias kens='kubectl edit namespace'
+# alias kdns='kubectl describe namespace'
+# alias kdelns='kubectl delete namespace'
+# alias kcn='kubectl config set-context $(kubectl config current-context) --namespace'
+
+# # ConfigMap management
+# alias kgcm='kubectl get configmaps'
+# alias kgcma='kubectl get configmaps --all-namespaces'
+# alias kecm='kubectl edit configmap'
+# alias kdcm='kubectl describe configmap'
+# alias kdelcm='kubectl delete configmap'
+
+# # Secret management
+# alias kgsec='kubectl get secret'
+# alias kgseca='kubectl get secret --all-namespaces'
+# alias kdsec='kubectl describe secret'
+# alias kdelsec='kubectl delete secret'
+
+# # Deployment management.
+# alias kgd='kubectl get deployment'
+# alias kgda='kubectl get deployment --all-namespaces'
+# alias kgdw='kgd --watch'
+# alias kgdwide='kgd -o wide'
+# alias ked='kubectl edit deployment'
+# alias kdd='kubectl describe deployment'
+# alias kdeld='kubectl delete deployment'
+# alias ksd='kubectl scale deployment'
+# alias krsd='kubectl rollout status deployment'
+
+# # Rollout management.
+# alias kgrs='kubectl get rs'
+# alias krh='kubectl rollout history'
+# alias kru='kubectl rollout undo'
+# alias krrd='kubectl rollout restart deployment'
+
+# # Statefulset management.
+# alias kgss='kubectl get statefulset'
+# alias kgssa='kubectl get statefulset --all-namespaces'
+# alias kgssw='kgss --watch'
+# alias kgsswide='kgss -o wide'
+# alias kess='kubectl edit statefulset'
+# alias kdss='kubectl describe statefulset'
+# alias kdelss='kubectl delete statefulset'
+# alias ksss='kubectl scale statefulset'
+# alias krsss='kubectl rollout status statefulset'
+
+# # Port forwarding
+# alias kpf="kubectl port-forward"
+
+# # Tools for accessing all information
+# alias kga='kubectl get all'
+# alias kgaa='kubectl get all --all-namespaces'
+
+# # Logs
+# alias kl='kubectl logs'
+# alias kl1h='kubectl logs --since 1h'
+# alias kl1m='kubectl logs --since 1m'
+# alias kl1s='kubectl logs --since 1s'
+# alias klf='kubectl logs -f'
+# alias klf1h='kubectl logs --since 1h -f'
+# alias klf1m='kubectl logs --since 1m -f'
+# alias klf1s='kubectl logs --since 1s -f'
+
+# # File copy
+# alias kcp='kubectl cp'
+
+# # Node Management
+# alias kgno='kubectl get nodes'
+# alias keno='kubectl edit node'
+# alias kdno='kubectl describe node'
+# alias kdelno='kubectl delete node'
+
+# # PVC management.
+# alias kgpvc='kubectl get pvc'
+# alias kgpvca='kubectl get pvc --all-namespaces'
+# alias kgpvcw='kgpvc --watch'
+# alias kepvc='kubectl edit pvc'
+# alias kdpvc='kubectl describe pvc'
+# alias kdelpvc='kubectl delete pvc'
+
+# # Service account management.
+# alias kgsa="kubectl get sa"
+# alias kdsa="kubectl describe sa"
+# alias kdelsa="kubectl delete sa"
+
+# # DaemonSet management.
+# alias kgds='kubectl get daemonset'
+# alias kgdsw='kgds --watch'
+# alias keds='kubectl edit daemonset'
+# alias kdds='kubectl describe daemonset'
+# alias kdelds='kubectl delete daemonset'
+
+# # CronJob management.
+# alias kgcj='kubectl get cronjob'
+# alias kecj='kubectl edit cronjob'
+# alias kdcj='kubectl describe cronjob'
+# alias kdelcj='kubectl delete cronjob'
+
+#######################################################
+# GENERAL ALIAS'S
+#######################################################
+# To temporarily bypass an alias, we precede the command with a \
+# EG: the ls command is aliased, but to use the normal ls command you would type \ls
+
+# Add an "alert" alias for long running commands.  Use like so:
+#   sleep 10; alert
+alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
+
+# Edit this .bashrc file
+alias ebrc='edit ~/.bashrc'
+
+# Show help for this .bashrc file
+alias hlp='less ~/.bashrc_help'
+
+# alias to show the date
+alias da='date "+%Y-%m-%d %A %T %Z"'
+
+# Alias's to modified commands
+alias cp='cp -i'
+alias mv='mv -i'
+alias rm='trash -v'
+alias mkdir='mkdir -p'
+alias ps='ps auxf'
+alias ping='ping -c 10'
+alias less='less -R'
+alias cls='clear'
+alias apt-get='sudo apt-get'
+alias multitail='multitail --no-repeat -c'
+alias freshclam='sudo freshclam'
+alias vi='nvim'
+alias svi='sudo vi'
+alias vis='nvim "+set si"'
+
+
+# Change directory aliases
+alias home='cd ~'
+alias cd..='cd ..'
 alias ..='cd ..'
 alias ...='cd ../..'
 alias ....='cd ../../..'
+alias .....='cd ../../../..'
 
-# Safety nets
-alias rm='rm -i'
-alias cp='cp -i'
-alias mv='mv -i'
+# cd into the old directory
+alias bd='cd "$OLDPWD"'
 
-# Kubernetes aliases
-alias k='kubectl'
-alias kg='kubectl get'
-alias kd='kubectl describe'
-alias ka='kubectl apply'
-alias kdel='kubectl delete'
-alias klogs='kubectl logs'
-alias kexec='kubectl exec -it'
+# Remove a directory and all files
+alias rmd='/bin/rm  --recursive --force --verbose '
 
-# Docker aliases
-alias d='docker'
-alias dps='docker ps'
-alias dim='docker images'
-alias drm='docker rm'
-alias drmi='docker rmi'
-alias dcu='docker-compose up'
-alias dcd='docker-compose down'
+# Alias's for multiple directory listing commands
+alias la='ls -Alh'                # show hidden files
+alias ls='ls -aFh --color=always' # add colors and file type extensions
+alias lx='ls -lXBh'               # sort by extension
+alias lk='ls -lSrh'               # sort by size
+alias lc='ls -ltcrh'              # sort by change time
+alias lu='ls -lturh'              # sort by access time
+alias lr='ls -lRh'                # recursive ls
+alias lt='ls -ltrh'               # sort by date
+alias lm='ls -alh |more'          # pipe through 'more'
+alias lw='ls -xAh'                # wide listing format
+alias ll='ls -Fls'                # long listing format
+alias labc='ls -lap'              # alphabetical sort
+alias lf="ls -l | egrep -v '^d'"  # files only
+alias ldir="ls -l | egrep '^d'"   # directories only
+alias lla='ls -Al'                # List and Hidden Files
+alias las='ls -A'                 # Hidden Files
+alias lls='ls -l'                 # List
 
+# alias chmod commands
+alias mx='chmod a+x'
+alias 000='chmod -R 000'
+alias 644='chmod -R 644'
+alias 666='chmod -R 666'
+alias 755='chmod -R 755'
+alias 777='chmod -R 777'
 
+# Search command line history
+alias h="history | grep "
 
-alias vimdiff="lvim -d"
-alias gst='git status'
-alias kubedir='eval "$(ktk -e)"'
-alias ls='ls --color'
-alias rm='rm -i'
-alias ip='ip -c'
-alias aws='aws --endpoint https://s3.unistra.fr'
-alias t='tmux new-window'
-alias kcx='kubectx'
-alias kns='. knsd'
-alias kd='. kubedir'
-alias watch='viddy --shell-options "--login" -c -d'
-alias ssh='tssh'
-alias s5cmd='s5cmd --endpoint-url https://s3.unistra.fr'
-alias ktp='kubectl top pod'
-alias ktn='kubectl top node'
-alias PegaseVersion='kubectl pegase release'
-alias kpeg='kubectl-pegase'
-alias krew='kubectl-krew'
-alias kice='kubectl-ice'
-alias kapi='kubectl-deprecations'
-alias kns='. knsd'
-alias kubens='ktk -t -C'
-alias tk='ktk'
-alias vim='lvim'
+# Search running processes
+alias p="ps aux | grep "
+alias topcpu="/bin/ps -eo pcpu,pid,user,args | sort -k 1 -r | head -10"
 
-# This command is used a LOT both below and in daily life
-alias k=kubectl
-alias kg='kubectl get'
-# Execute a kubectl command against all namespaces
-#alias kca='_kca(){ kubectl "$@" --all-namespaces;  unset -f _kca; }; _kca'
+# Search files in the current folder
+alias f="find . | grep "
 
-# Apply a YML file
-alias kaf='kubectl apply -f'
+# Count all files (recursively) in the current folder
+alias countfiles="for t in files links directories; do echo \`find . -type \${t:0:1} | wc -l\` \$t; done 2> /dev/null"
 
-# Drop into an interactive terminal on a container
-alias keti='kubectl exec -ti'
+# To see if a command is aliased, a file, or a built-in command
+alias checkcommand="type -t"
 
-# Manage configuration quickly to switch contexts between local, dev ad staging.
-alias kcuc='kubectl config use-context'
-alias kcsc='kubectl config set-context'
-alias kcdc='kubectl config delete-context'
-alias kccc='kubectl config current-context'
+# Show open ports
+alias openports='netstat -nape --inet'
 
-# List all contexts
-alias kcgc='kubectl config get-contexts'
+# Alias's for safe and forced reboots
+alias rebootsafe='sudo shutdown -r now'
+alias rebootforce='sudo shutdown -r -n now'
 
-# General aliases
-alias kdel='kubectl delete'
-alias kdelf='kubectl delete -f'
+# Alias's to show disk space and space used in a folder
+alias diskspace="du -S | sort -n -r |more"
+alias folders='du -h --max-depth=1'
+alias folderssort='find . -maxdepth 1 -type d -print0 | xargs -0 du -sk | sort -rn'
+alias tree='tree -CAhF --dirsfirst'
+alias treed='tree -CAFd'
+alias mountedinfo='df -hT'
 
-# Pod management.
-alias kgp='kubectl get pods'
-alias kgpa='kubectl get pods --all-namespaces'
-alias kgpw='kgp --watch'
-alias kgpwide='kgp -o wide'
-alias kep='kubectl edit pods'
-alias kdp='kubectl describe pods'
-alias kdelp='kubectl delete pods'
+# Alias's for archives
+alias mktar='tar -cvf'
+alias mkbz2='tar -cvjf'
+alias mkgz='tar -cvzf'
+alias untar='tar -xvf'
+alias unbz2='tar -xvjf'
+alias ungz='tar -xvzf'
 
-# get pod by label: kgpl "app=myapp" -n myns
-alias kgpl='kgp -l'
+# Show all logs in /var/log
+alias logs="sudo find /var/log -type f -exec file {} \; | grep 'text' | cut -d' ' -f1 | sed -e's/:$//g' | grep -v '[0-9]$' | xargs tail -f"
 
-# get pod by namespace: kgpn kube-system"
-alias kgpn='kgp -n'
+# SHA1
+alias sha1='openssl sha1'
 
-# Service management.
-alias kgs='kubectl get svc'
-alias kgsa='kubectl get svc --all-namespaces'
-alias kgsw='kgs --watch'
-alias kgswide='kgs -o wide'
-alias kes='kubectl edit svc'
-alias kds='kubectl describe svc'
-alias kdels='kubectl delete svc'
+alias clickpaste='sleep 3; xdotool type "$(xclip -o -selection clipboard)"'
 
-# Ingress management
-alias kgi='kubectl get ingress'
-alias kgia='kubectl get ingress --all-namespaces'
-alias kei='kubectl edit ingress'
-alias kdi='kubectl describe ingress'
-alias kdeli='kubectl delete ingress'
+# KITTY - alias to be able to use kitty features when connecting to remote servers(e.g use tmux on remote server)
 
-# Namespace management
-alias kgns='kubectl get namespaces'
-alias kens='kubectl edit namespace'
-alias kdns='kubectl describe namespace'
-alias kdelns='kubectl delete namespace'
-alias kcn='kubectl config set-context $(kubectl config current-context) --namespace'
+alias kssh="kitty +kitten ssh"
 
-# ConfigMap management
-alias kgcm='kubectl get configmaps'
-alias kgcma='kubectl get configmaps --all-namespaces'
-alias kecm='kubectl edit configmap'
-alias kdcm='kubectl describe configmap'
-alias kdelcm='kubectl delete configmap'
+# alias to cleanup unused docker containers, images, networks, and volumes
 
-# Secret management
-alias kgsec='kubectl get secret'
-alias kgseca='kubectl get secret --all-namespaces'
-alias kdsec='kubectl describe secret'
-alias kdelsec='kubectl delete secret'
-
-# Deployment management.
-alias kgd='kubectl get deployment'
-alias kgda='kubectl get deployment --all-namespaces'
-alias kgdw='kgd --watch'
-alias kgdwide='kgd -o wide'
-alias ked='kubectl edit deployment'
-alias kdd='kubectl describe deployment'
-alias kdeld='kubectl delete deployment'
-alias ksd='kubectl scale deployment'
-alias krsd='kubectl rollout status deployment'
-
-# Rollout management.
-alias kgrs='kubectl get rs'
-alias krh='kubectl rollout history'
-alias kru='kubectl rollout undo'
-alias krrd='kubectl rollout restart deployment'
-
-# Statefulset management.
-alias kgss='kubectl get statefulset'
-alias kgssa='kubectl get statefulset --all-namespaces'
-alias kgssw='kgss --watch'
-alias kgsswide='kgss -o wide'
-alias kess='kubectl edit statefulset'
-alias kdss='kubectl describe statefulset'
-alias kdelss='kubectl delete statefulset'
-alias ksss='kubectl scale statefulset'
-alias krsss='kubectl rollout status statefulset'
-
-# Port forwarding
-alias kpf="kubectl port-forward"
-
-# Tools for accessing all information
-alias kga='kubectl get all'
-alias kgaa='kubectl get all --all-namespaces'
-
-# Logs
-alias kl='kubectl logs'
-alias kl1h='kubectl logs --since 1h'
-alias kl1m='kubectl logs --since 1m'
-alias kl1s='kubectl logs --since 1s'
-alias klf='kubectl logs -f'
-alias klf1h='kubectl logs --since 1h -f'
-alias klf1m='kubectl logs --since 1m -f'
-alias klf1s='kubectl logs --since 1s -f'
-
-# File copy
-alias kcp='kubectl cp'
-
-# Node Management
-alias kgno='kubectl get nodes'
-alias keno='kubectl edit node'
-alias kdno='kubectl describe node'
-alias kdelno='kubectl delete node'
-
-# PVC management.
-alias kgpvc='kubectl get pvc'
-alias kgpvca='kubectl get pvc --all-namespaces'
-alias kgpvcw='kgpvc --watch'
-alias kepvc='kubectl edit pvc'
-alias kdpvc='kubectl describe pvc'
-alias kdelpvc='kubectl delete pvc'
-
-# Service account management.
-alias kgsa="kubectl get sa"
-alias kdsa="kubectl describe sa"
-alias kdelsa="kubectl delete sa"
-
-# DaemonSet management.
-alias kgds='kubectl get daemonset'
-alias kgdsw='kgds --watch'
-alias keds='kubectl edit daemonset'
-alias kdds='kubectl describe daemonset'
-alias kdelds='kubectl delete daemonset'
-
-# CronJob management.
-alias kgcj='kubectl get cronjob'
-alias kecj='kubectl edit cronjob'
-alias kdcj='kubectl describe cronjob'
-alias kdelcj='kubectl delete cronjob'
-
+alias docker-clean=' \
+  docker container prune -f ; \
+  docker image prune -f ; \
+  docker network prune -f ; \
+  docker volume prune -f '

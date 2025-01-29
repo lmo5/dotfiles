@@ -13,6 +13,12 @@ esac
 # See bash(1) for more options
 HISTCONTROL=ignoreboth
 
+# History settings
+export HISTSIZE=-1
+export HISTFILESIZE=-1
+export HISTTIMEFORMAT="[%F %T] "
+
+
 # append to the history file, don't overwrite it
 shopt -s histappend
 
