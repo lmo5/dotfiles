@@ -15,51 +15,29 @@ log() { echo -e "${2:-$YELLOW}$1${RC}"; }
 error() { log "$1" "$RED" >&2; exit 1; }
 success() { log "$1" "$GREEN"; }
 
+
+setup_locales() {
+    log "Setting up locales..."
+    sudo locale-gen fr_FR.UTF-8
+    sudo locale-gen en_US.UTF-8
+    sudo update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+    
+    # Export locale variables for current session
+    export LANG=en_US.UTF-8
+    export LC_ALL=en_US.UTF-8
+}
+
 check_requirements() {
     if ! groups | grep -q sudo; then
         error "You need to be a member of the sudo group to run this script!"
     fi
 }
 
-# Parallel installation helper
-# Parallel installation helper
-install_packages() {
-    local packages=("$@")
-    local pids=()
-    local max_parallel=4
-    local running=0
-    local failed_packages=()
-    
-    for package in "${packages[@]}"; do
-        (
-            if ! sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$package" >/dev/null 2>&1; then
-                echo "$package" # Output failed package name
-                exit 1
-            fi
-        ) &
-        pids+=($!)
-        ((running++))
-        
-        if ((running >= max_parallel)); then
-            for pid in "${pids[@]}"; do
-                if ! wait "$pid"; then
-                    failed_packages+=("$(jobs -p "$pid")")
-                fi
-            done
-            pids=()
-            running=0
-        fi
-    done
-    
-    # Wait for remaining installations
-    for pid in "${pids[@]}"; do
-        if ! wait "$pid"; then
-            failed_packages+=("$(jobs -p "$pid")")
-        fi
-    done
-    
-    if [ ${#failed_packages[@]} -ne 0 ]; then
-        error "Failed to install packages: ${failed_packages[*]}"
+install_package() {
+    local package=$1
+    log "Installing $package..."
+    if ! sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$package" >/dev/null 2>&1; then
+        error "Failed to install $package"
     fi
 }
 
@@ -82,7 +60,7 @@ setup_repositories() {
         sudo add-apt-repository -y ppa:zhangsongcui3371/fastfetch >/dev/null 2>&1
     fi
     
-    # Update package lists quietly
+    # Update package lists
     log "Updating package lists..."
     sudo apt-get update -qq
 }
@@ -96,7 +74,9 @@ install_dependencies() {
         kubectl apt-transport-https ca-certificates direnv
     )
     
-    install_packages "${DEPENDENCIES[@]}"
+    for package in "${DEPENDENCIES[@]}"; do
+        install_package "$package"
+    done
 }
 
 setup_bat() {
@@ -152,6 +132,7 @@ install_kubernetes_tools() {
     
     # Install kubectx and kubens
     if ! command -v kubectx >/dev/null; then
+        log "Installing kubectx and kubens..."
         sudo git clone --depth 1 https://github.com/ahmetb/kubectx /opt/kubectx
         sudo ln -sf /opt/kubectx/kubectx /usr/local/bin/kubectx
         sudo ln -sf /opt/kubectx/kubens /usr/local/bin/kubens
@@ -159,18 +140,21 @@ install_kubernetes_tools() {
     
     # Install kube-ps1
     if [ ! -d "$HOME/.kube-ps1" ]; then
+        log "Installing kube-ps1..."
         git clone --depth 1 https://github.com/jonmosco/kube-ps1.git "$HOME/.kube-ps1"
         echo "source $HOME/.kube-ps1/kube-ps1.sh" >> ~/.zshrc
     fi
     
     # Install k9s
     if ! command -v k9s >/dev/null; then
+        log "Installing k9s..."
         curl -sS https://webinstall.dev/k9s | bash
     fi
 }
 
 install_devbox() {
     if ! command -v devbox >/dev/null; then
+        log "Installing devbox..."
         curl -fsSL https://get.jetpack.io/devbox | bash
     fi
 }
@@ -196,66 +180,95 @@ setup_shell_environment() {
     
     # Install Oh My Zsh
     if [ ! -d "$HOME/.oh-my-zsh" ]; then
+        log "Installing Oh My Zsh..."
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
     fi
     
-    # Install Powerlevel10k
+    # Install Powerlevel10k theme
     if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" ]; then
+        log "Installing Powerlevel10k theme..."
         git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
-    fi  
-    # Install Powerlevel10k
-    if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh}/plugins/zsh-autosuggestions" ]; then
-        git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh}/plugins/zsh-autosuggestions"
-    fi  
-    # Install Powerlevel10k
-    if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh}/plugins/zsh-syntax-highlighting" ]; then
-        git clone --depth=1 https://github.com/zsh-userszsh-syntax-highlighting.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh}/plugins/zsh-syntax-highlighting"
-    fi  
-    # Install Powerlevel10k
-    if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh}/plugins/zsh-completions" ]; then
-        git clone --depth=1 https://github.com/zsh-users/zsh-completions.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-completions"
     fi
     
-    wait
+    # Install ZSH plugins
+    local plugins_dir="${ZSH_CUSTOM:-$HOME/.oh-my-zsh}/plugins"
+    
+    if [ ! -d "$plugins_dir/zsh-autosuggestions" ]; then
+        log "Installing zsh-autosuggestions..."
+        git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions.git "$plugins_dir/zsh-autosuggestions"
+    fi
+    
+    if [ ! -d "$plugins_dir/zsh-syntax-highlighting" ]; then
+        log "Installing zsh-syntax-highlighting..."
+        git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting.git "$plugins_dir/zsh-syntax-highlighting"
+    fi
+    
+    if [ ! -d "$plugins_dir/zsh-completions" ]; then
+        log "Installing zsh-completions..."
+        git clone --depth=1 https://github.com/zsh-users/zsh-completions.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-completions"
+    fi
 }
 
 install_additional_tools() {
     log "Installing additional tools..."
     
-    # Install tools in parallel
-    ([ ! -d "$HOME/.fzf" ] && git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf && ~/.fzf/install --all) &
-    (command -v zoxide >/dev/null || curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh) &
-    (command -v starship >/dev/null || curl -sS https://starship.rs/install.sh | sh -s -- -y) &
-    wait
+    if [ ! -d "$HOME/.fzf" ]; then
+        log "Installing fzf..."
+        git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+        ~/.fzf/install --all
+    fi
+    
+    if ! command -v zoxide >/dev/null; then
+        log "Installing zoxide..."
+        curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
+    fi
+    
+    if ! command -v starship >/dev/null; then
+        log "Installing starship..."
+        curl -sS https://starship.rs/install.sh | sh -s -- -y
+    fi
 }
 
 backup_configs() {
     log "Backing up existing configurations..."
+    local backup_dir="$HOME/.config_backup"
+    mkdir -p "$backup_dir/.config"
+    
     local -a configs=(
         ".zshrc" ".p10k.zsh" ".config/starship.toml"
         ".config/fastfetch/config.jsonc" ".config/bat/config"
         ".bashrc" ".bash_logout" ".bash_profile" ".profile"
     )
     
-    mkdir -p "$HOME/.config_backup/.config"
     for config in "${configs[@]}"; do
         if [ -f "$HOME/$config" ]; then
-            mv "$HOME/$config" "$HOME/${config}.bak"
+            log "Backing up $config..."
+            mkdir -p "$(dirname "$backup_dir/$config")"
+            mv "$HOME/$config" "$backup_dir/$config"
         fi
     done
 }
 
 setup_dotfiles() {
     log "Setting up dotfiles..."
+    cd "$HOME/dotfiles" || error "Failed to change directory to dotfiles."
+    
     local -a STOW_PACKAGES=(
         "zsh" "bash" "shell" "starship" "fonts" "bat"
     )
     
-    mkdir -p "$HOME/.config"
     for package in "${STOW_PACKAGES[@]}"; do
-        stow --no-folding -v -R -t "$HOME" "$package"
+        if [ -d "$package" ]; then
+            log "Setting up $package configuration..."
+            stow --no-folding -v -R -t "$HOME" "$package" || {
+                error "Failed to stow package $package. Please check the directory structure."
+            }
+        else
+            log "Warning: Package directory $package not found, skipping..."
+        fi
     done
 }
+
 
 configure_shell_preference() {
     read -p "Would you like to use zsh as your default shell? (y/n) " use_zsh
