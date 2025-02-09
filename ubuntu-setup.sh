@@ -60,6 +60,24 @@ setup_repositories() {
         sudo add-apt-repository -y ppa:zhangsongcui3371/fastfetch >/dev/null 2>&1
     fi
     
+    # GitLab CLI repository
+    if [ ! -f /etc/apt/keyrings/gitlab-cli.gpg ]; then
+        curl -fsSL https://gitlab.com/gitlab-org/cli/-/raw/main/support/deb.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/gitlab-cli.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/gitlab-cli.gpg] https://gitlab.com/gitlab-org/cli/uploads/gpg/deb stable main" | sudo tee /etc/apt/sources.list.d/glab.list
+    fi
+
+    # HashiCorp repository
+    if [ ! -f /etc/apt/keyrings/hashicorp-archive-keyring.gpg ]; then
+        wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/hashicorp-archive-keyring.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+    fi
+
+    # MongoDB repository
+    if [ ! -f /etc/apt/keyrings/mongodb-archive-keyring.gpg ]; then
+        wget -qO- https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg --dearmor -o /etc/apt/keyrings/mongodb-archive-keyring.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/mongodb-archive-keyring.gpg] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+    fi
+
     # Update package lists
     log "Updating package lists..."
     sudo apt-get update -qq
@@ -72,6 +90,7 @@ install_dependencies() {
         bash bash-completion tar bat tree multitail fastfetch
         wget unzip fontconfig neovim zsh stow curl git
         kubectl apt-transport-https ca-certificates direnv tmux htop
+        dnsutils terraform vault bind9-dnsutils
     )
     
     for package in "${DEPENDENCIES[@]}"; do
@@ -79,6 +98,47 @@ install_dependencies() {
     done
 }
 
+install_tfenv() {
+    log "Installing tfenv..."
+    if [ ! -d "$HOME/.tfenv" ]; then
+        git clone --depth=1 https://github.com/tfutils/tfenv.git ~/.tfenv
+        mkdir -p ~/.local/bin
+        ln -sf ~/.tfenv/bin/* ~/.local/bin/
+    fi
+}
+
+install_optional_tools() {
+    local install_terragrunt
+    local install_mongosh
+    local install_gum
+    local install_glab
+    
+    read -p "Would you like to install Terragrunt? (y/n) " install_terragrunt
+    read -p "Would you like to install MongoDB Shell? (y/n) " install_mongosh
+    read -p "Would you like to install Gum? (y/n) " install_gum
+    read -p "Would you like to install glab ? (y/n) " install_glab
+    
+    if [[ $install_terragrunt =~ ^[Yy]$ ]]; then
+        log "Installing Terragrunt..."
+        TERRAGRUNT_VERSION=$(curl -s https://api.github.com/repos/gruntwork-io/terragrunt/releases/latest | grep tag_name | cut -d '"' -f 4)
+        wget -q "https://github.com/gruntwork-io/terragrunt/releases/download/${TERRAGRUNT_VERSION}/terragrunt_linux_amd64" -O ~/.local/bin/terragrunt
+        chmod +x ~/.local/bin/terragrunt
+    fi
+    
+    if [[ $install_mongosh =~ ^[Yy]$ ]]; then
+        log "Installing MongoDB Shell..."
+        install_package "mongodb-mongosh"
+    fi
+    
+    if [[ $install_gum =~ ^[Yy]$ ]]; then
+        log "Installing Gum..."
+        sudo snap install gum --classic
+    fi  
+    if [[ $install_glab =~ ^[Yy]$ ]]; then
+        log "Installing glab..."
+        sudo snap install glab
+    fi
+}
 setup_bat() {
     log "Setting up bat..."
     if [ -f /usr/bin/batcat ] && [ ! -f ~/.local/bin/bat ]; then
@@ -286,12 +346,14 @@ main() {
     setup_repositories
     install_dependencies
     setup_bat
-    setup_direnv
+    # setup_direnv
     install_kubernetes_tools
     install_devbox
+    install_tfenv
     install_font
     setup_shell_environment
     install_additional_tools
+    install_optional_tools
     backup_configs
     setup_dotfiles
     configure_shell_preference
