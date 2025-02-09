@@ -81,7 +81,7 @@ CASE_SENSITIVE="false"
 for file in "$HOME/.shell/."{exports,aliases,functions,external,zsh_completions,env}; do
     [ -r "$file" ] && source "$file"
 done
-plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-completions kube-ps1)
+plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-completions kube-ps1 direnv)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -117,3 +117,5 @@ source $ZSH/oh-my-zsh.sh
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 typeset -g POWERLEVEL9K_INSTANT_PROMPT=off
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+# Generated for envman. Do not edit.
+[ -s "$HOME/.config/envman/load.sh" ] && source "$HOME/.config/envman/load.sh"

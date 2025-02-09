@@ -13,26 +13,62 @@ if ! groups | grep -q sudo; then
 fi
 
 # Install dependencies
+
+# Install dependencies one by one to better handle errors
 echo "${YELLOW}Installing dependencies...${RC}"
-DEPENDENCIES='bash bash-completion tar bat tree multitail fastfetch wget unzip fontconfig neovim zsh stow curl git'
-if ! sudo apt update && sudo apt install -y $DEPENDENCIES; then
-    echo "${RED}Failed to install dependencies${RC}"
+DEPENDENCIES=(
+    bash
+    bash-completion
+    tar
+    bat
+    tree
+    multitail
+    fastfetch
+    wget
+    unzip
+    fontconfig
+    neovim
+    zsh
+    stow
+    curl
+    git
+)
+
+sudo add-apt-repository -y ppa:zhangsongcui3371/fastfetch
+# Update package list
+echo "Updating package list..."
+if ! sudo apt-get update; then
+    echo "${RED}Failed to update package list${RC}"
     exit 1
 fi
+
+# Install each dependency
+for dep in "${DEPENDENCIES[@]}"; do
+    echo "Installing $dep..."
+    if ! sudo apt-get install -y "$dep"; then
+        echo "${RED}Failed to install $dep${RC}"
+        exit 1
+    fi
+done
 
 # Install and configure bat (batcat)
 echo "${YELLOW}Setting up bat (batcat)...${RC}"
 if ! command -v bat >/dev/null; then
     # On Ubuntu/Debian, bat is installed as batcat
     if [ -f /usr/bin/batcat ]; then
-        mkdir -p ~/.local/bin
-        ln -s /usr/bin/batcat ~/.local/bin/bat
+        # Check if the symbolic link already exists
+        if [ ! -f ~/.local/bin/bat ]; then
+            mkdir -p ~/.local/bin
+            ln -s /usr/bin/batcat ~/.local/bin/bat
+            echo "${GREEN}Successfully created the symbolic link for bat.${RC}"
+        else
+            echo "${YELLOW}Symbolic link for bat already exists.${RC}"
+        fi
     else
-        echo "${RED}bat installation not found${RC}"
+        echo "${RED}bat installation not found at /usr/bin/batcat${RC}"
         exit 1
     fi
 fi
-
 # Create bat config directory
 mkdir -p ~/.config/bat
 
@@ -45,6 +81,33 @@ if ! command -v kubectl >/dev/null; then
     echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
     sudo apt-get update
     sudo apt-get install -y kubectl
+fi
+
+
+# Install kubectx and kubens
+echo "${YELLOW}Installing kubectx and kubens...${RC}"
+if ! command -v kubectx >/dev/null || ! command -v kubens >/dev/null; then
+    sudo git clone https://github.com/ahmetb/kubectx /opt/kubectx
+    sudo ln -s /opt/kubectx/kubectx /usr/local/bin/kubectx
+    sudo ln -s /opt/kubectx/kubens /usr/local/bin/kubens
+    echo "${GREEN}kubectx and kubens installed successfully.${RC}"
+else
+    echo "${YELLOW}kubectx and kubens are already installed.${RC}"
+fi
+
+# Install kube-ps1
+echo "${YELLOW}Installing kube-ps1...${RC}"
+if [ ! -d "$HOME/.kube-ps1" ]; then
+    git clone https://github.com/jonmosco/kube-ps1.git "$HOME/.kube-ps1"
+    echo "source $HOME/.kube-ps1/kube-ps1.sh" >> ~/.zshrc
+    echo "${GREEN}kube-ps1 installed successfully.${RC}"
+else
+    echo "${YELLOW}kube-ps1 is already installed.${RC}"
+fi
+
+echo "${YELLOW}Installing k9s...${RC}"
+if ! command -v k9s >/dev/null; then
+    curl -sS https://webinstall.dev/k9s | bash
 fi
 
 # Install Devbox
@@ -86,21 +149,37 @@ if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" ]; then
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
 fi
 
+# Navigate to the oh-my-zsh custom plugins directory
+cd $HOME/.oh-my-zsh/plugins
+
+# Clone the zsh-autosuggestions repository
+git clone https://github.com/zsh-users/zsh-autosuggestions.git
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git
+git clone https://github.com/zsh-users/zsh-completions.git
+
+cd -
+
 # Install additional tools (Starship, fzf, zoxide)
-if ! command -v starship >/dev/null; then
-    echo "Installing Starship prompt..."
-    curl -sS https://starship.rs/install.sh | sh
-fi
 
 if ! command -v fzf >/dev/null; then
-    echo "Installing fzf..."
-    git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
-    ~/.fzf/install --all
+   
+    if [ ! -d "$HOME/.fzf" ]; then
+        echo "Installing fzf..."
+        git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+        ~/.fzf/install --all
+    else
+        echo "~/.fzf directory already exists. Skipping fzf installation."
+    fi
 fi
 
 if ! command -v zoxide >/dev/null; then
     echo "Installing zoxide..."
     curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
+fi
+if ! command -v starship >/dev/null; then
+    echo "Installing Starship prompt..."
+
+    sh -c "$(curl -fsSL https://starship.rs/install.sh)" --yes
 fi
 
 # Backup existing configs that will be managed by stow
@@ -117,11 +196,11 @@ configs=(
     ".profile"
 )
 
-mkdir -p "$HOME/.config_backup"
+mkdir -p "$HOME/.config_backup/.config"
 for config in "${configs[@]}"; do
     if [ -f "$HOME/$config" ]; then
-        echo "Backing up $config to $HOME/.config_backup/${config}.bak"
-        mv "$HOME/$config" "$HOME/.config_backup/${config}.bak"
+        echo "Backing up $config to $HOME/${config}.bak"
+        mv "$HOME/$config" "$HOME/${config}.bak"
     fi
 done
 
