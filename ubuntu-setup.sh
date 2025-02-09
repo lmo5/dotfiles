@@ -71,7 +71,7 @@ install_dependencies() {
     local -a DEPENDENCIES=(
         bash bash-completion tar bat tree multitail fastfetch
         wget unzip fontconfig neovim zsh stow curl git
-        kubectl apt-transport-https ca-certificates direnv
+        kubectl apt-transport-https ca-certificates direnv tmux htop
     )
     
     for package in "${DEPENDENCIES[@]}"; do
