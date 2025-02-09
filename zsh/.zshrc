@@ -81,7 +81,7 @@ CASE_SENSITIVE="false"
 for file in "$HOME/.shell/."{exports,aliases,functions,external,zsh_completions,env}; do
     [ -r "$file" ] && source "$file"
 done
-plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-completions kube-ps1 direnv)
+plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-completions kube-ps1 direnv fzf)
 
 source $ZSH/oh-my-zsh.sh
 

@@ -90,13 +90,45 @@ install_dependencies() {
         bash bash-completion tar bat tree multitail fastfetch
         wget unzip fontconfig neovim zsh stow curl git
         kubectl apt-transport-https ca-certificates direnv tmux htop
-        dnsutils terraform vault bind9-dnsutils
+        dnsutils terraform vault bind9-dnsutils trash-cli
     )
     
     for package in "${DEPENDENCIES[@]}"; do
         install_package "$package"
     done
 }
+
+install_stern() {
+    log "Installing stern..."
+
+    # Check if stern is already installed
+    if command -v stern &> /dev/null; then
+        log "stern is already installed."
+        return
+    fi
+
+    # Download the latest release of stern
+    STERN_VERSION=$(curl -s https://api.github.com/repos/stern/stern/releases/latest | grep 'tag_name' | cut -d '"' -f 4)
+    STERN_URL="https://github.com/stern/stern/releases/download/${STERN_VERSION}/stern_${STERN_VERSION#v}_linux_amd64.tar.gz"
+
+    # Download and extract stern
+    curl -LO $STERN_URL
+    tar -xzf stern_${STERN_VERSION#v}_linux_amd64.tar.gz
+
+    # Move stern to /usr/local/bin
+    sudo mv stern /usr/local/bin/
+
+    # Clean up
+    rm stern_${STERN_VERSION#v}_linux_amd64.tar.gz
+
+    # Verify installation
+    if command -v stern &> /dev/null; then
+        success "stern installed successfully."
+    else
+        error "Failed to install stern."
+    fi
+}
+
 
 install_tfenv() {
     log "Installing tfenv..."
@@ -265,7 +297,7 @@ setup_shell_environment() {
     
     if [ ! -d "$plugins_dir/zsh-completions" ]; then
         log "Installing zsh-completions..."
-        git clone --depth=1 https://github.com/zsh-users/zsh-completions.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-completions"
+        git clone --depth=1 https://github.com/zsh-users/zsh-completions.git "$plugins_dir/zsh-completions"
     fi
 }
 
@@ -343,12 +375,14 @@ configure_shell_preference() {
 
 main() {
     check_requirements
+    setup_locales
     setup_repositories
     install_dependencies
     setup_bat
     # setup_direnv
     install_kubernetes_tools
     install_devbox
+    install_stern
     install_tfenv
     install_font
     setup_shell_environment
