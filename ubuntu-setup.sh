@@ -244,6 +244,43 @@ install_kubernetes_tools() {
     fi
 }
 
+install_krew() {
+    log "Installing krew..."
+
+    # Check if krew is already installed
+    if command -v kubectl-krew &> /dev/null; then
+        log "krew is already installed."
+        return
+    fi
+
+    # Install krew
+    (
+        set -x; cd "$(mktemp -d)" &&
+        OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
+        ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
+        KREW="krew-${OS}_${ARCH}" &&
+        curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz" &&
+        tar zxvf "${KREW}.tar.gz" &&
+        ./"${KREW}" install krew
+    )
+
+    # Add krew to PATH
+    if ! grep -q 'export PATH="${PATH}:${HOME}/.krew/bin"' "$HOME/.zshrc"; then
+        echo 'export PATH="${PATH}:${HOME}/.krew/bin"' >> "$HOME/.zshrc"
+    fi
+
+    if ! grep -q 'export PATH="${PATH}:${HOME}/.krew/bin"' "$HOME/.bashrc"; then
+        echo 'export PATH="${PATH}:${HOME}/.krew/bin"' >> "$HOME/.bashrc"
+    fi
+
+    # Verify installation
+    if command -v kubectl-krew &> /dev/null; then
+        success "krew installed successfully."
+    else
+        error "Failed to install krew."
+    fi
+}
+
 install_devbox() {
     if ! command -v devbox >/dev/null; then
         log "Installing devbox..."
@@ -381,6 +418,7 @@ main() {
     setup_bat
     # setup_direnv
     install_kubernetes_tools
+    install_krew
     install_devbox
     install_stern
     install_tfenv
