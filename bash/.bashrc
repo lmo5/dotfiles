@@ -28,3 +28,4 @@ eval "$(zoxide init bash)"
 eval "$(direnv hook bash)"
 
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
+export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
