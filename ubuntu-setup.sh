@@ -410,6 +410,34 @@ configure_shell_preference() {
     fi
 }
 
+install_kubie() {
+    log "Installing kubie..."
+
+    # Check if kubie is already installed
+    if command -v kubie &> /dev/null; then
+        log "kubie is already installed."
+        return
+    }
+
+    # Download the latest release of kubie
+    KUBIE_VERSION=$(curl -s https://api.github.com/repos/sbstp/kubie/releases/latest | grep 'tag_name' | cut -d '"' -f 4)
+    KUBIE_URL="https://github.com/sbstp/kubie/releases/download/${KUBIE_VERSION}/kubie-linux-amd64"
+
+    # Download kubie
+    curl -L $KUBIE_URL -o kubie
+
+    # Make it executable and move to /usr/local/bin
+    chmod +x kubie
+    sudo mv kubie /usr/local/bin/
+
+    # Verify installation
+    if command -v kubie &> /dev/null; then
+        success "kubie installed successfully."
+    else
+        error "Failed to install kubie."
+    fi
+}
+
 main() {
     check_requirements
     setup_locales
@@ -419,6 +447,7 @@ main() {
     # setup_direnv
     install_kubernetes_tools
     install_krew
+    install_kubie
     install_devbox
     install_stern
     install_tfenv
