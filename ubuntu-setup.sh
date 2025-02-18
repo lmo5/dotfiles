@@ -219,23 +219,51 @@ EOF
     success "direnv setup complete. Use .envrc.template as a reference for your projects."
 }
 
+install_kubie() {
+    log "Installing kubie..."
+
+    # Check if kubie is already installed
+    if command -v kubie &> /dev/null; then
+        log "kubie is already installed."
+        return
+    fi
+
+    # Download the latest release of kubie
+    KUBIE_VERSION=$(curl -s https://api.github.com/repos/sbstp/kubie/releases/latest | grep 'tag_name' | cut -d '"' -f 4)
+    KUBIE_URL="https://github.com/sbstp/kubie/releases/download/${KUBIE_VERSION}/kubie-linux-amd64"
+
+    # Download kubie
+    curl -L $KUBIE_URL -o kubie
+
+    # Make it executable and move to /usr/local/bin
+    chmod +x kubie
+    sudo mv kubie /usr/local/bin/
+
+    # Verify installation
+    if command -v kubie &> /dev/null; then
+        success "kubie installed successfully."
+    else
+        error "Failed to install kubie."
+    fi
+}
+
 install_kubernetes_tools() {
     log "Installing Kubernetes tools..."
     
-    # Install kubectx and kubens
-    if ! command -v kubectx >/dev/null; then
-        log "Installing kubectx and kubens..."
-        sudo git clone --depth 1 https://github.com/ahmetb/kubectx /opt/kubectx
-        sudo ln -sf /opt/kubectx/kubectx /usr/local/bin/kubectx
-        sudo ln -sf /opt/kubectx/kubens /usr/local/bin/kubens
-    fi
+    # # Install kubectx and kubens
+    # if ! command -v kubectx >/dev/null; then
+    #     log "Installing kubectx and kubens..."
+    #     sudo git clone --depth 1 https://github.com/ahmetb/kubectx /opt/kubectx
+    #     sudo ln -sf /opt/kubectx/kubectx /usr/local/bin/kubectx
+    #     sudo ln -sf /opt/kubectx/kubens /usr/local/bin/kubens
+    # fi
     
-    # Install kube-ps1
-    if [ ! -d "$HOME/.kube-ps1" ]; then
-        log "Installing kube-ps1..."
-        git clone --depth 1 https://github.com/jonmosco/kube-ps1.git "$HOME/.kube-ps1"
-        echo "source $HOME/.kube-ps1/kube-ps1.sh" >> ~/.zshrc
-    fi
+    # # Install kube-ps1
+    # if [ ! -d "$HOME/.kube-ps1" ]; then
+    #     log "Installing kube-ps1..."
+    #     git clone --depth 1 https://github.com/jonmosco/kube-ps1.git "$HOME/.kube-ps1"
+    #     echo "source $HOME/.kube-ps1/kube-ps1.sh" >> ~/.zshrc
+    # fi
     
     # Install k9s
     if ! command -v k9s >/dev/null; then
@@ -277,7 +305,7 @@ install_krew() {
     if command -v kubectl-krew &> /dev/null; then
         success "krew installed successfully."
     else
-        error "Failed to install krew."
+        log "Failed to install krew."
     fi
 }
 
@@ -410,41 +438,13 @@ configure_shell_preference() {
     fi
 }
 
-install_kubie() {
-    log "Installing kubie..."
-
-    # Check if kubie is already installed
-    if command -v kubie &> /dev/null; then
-        log "kubie is already installed."
-        return
-    }
-
-    # Download the latest release of kubie
-    KUBIE_VERSION=$(curl -s https://api.github.com/repos/sbstp/kubie/releases/latest | grep 'tag_name' | cut -d '"' -f 4)
-    KUBIE_URL="https://github.com/sbstp/kubie/releases/download/${KUBIE_VERSION}/kubie-linux-amd64"
-
-    # Download kubie
-    curl -L $KUBIE_URL -o kubie
-
-    # Make it executable and move to /usr/local/bin
-    chmod +x kubie
-    sudo mv kubie /usr/local/bin/
-
-    # Verify installation
-    if command -v kubie &> /dev/null; then
-        success "kubie installed successfully."
-    else
-        error "Failed to install kubie."
-    fi
-}
-
 main() {
     check_requirements
     setup_locales
     setup_repositories
     install_dependencies
     setup_bat
-    # setup_direnv
+    setup_direnv
     install_kubernetes_tools
     install_krew
     install_kubie

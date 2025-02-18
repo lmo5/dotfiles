@@ -120,3 +120,4 @@ typeset -g POWERLEVEL9K_INSTANT_PROMPT=off
 export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
 # Generated for envman. Do not edit.
 [ -s "$HOME/.config/envman/load.sh" ] && source "$HOME/.config/envman/load.sh"
+source /home/ayoubel-moukhtafi/.kube-ps1/kube-ps1.sh
