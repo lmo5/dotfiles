@@ -411,7 +411,7 @@ setup_dotfiles() {
     cd "$HOME/dotfiles" || error "Failed to change directory to dotfiles."
     
     local -a STOW_PACKAGES=(
-        "zsh" "bash" "shell" "starship" "fonts" "bat"
+        "zsh" "bash" "shell" "starship" "fonts" "bat" "localbin"
     )
     
     for package in "${STOW_PACKAGES[@]}"; do
