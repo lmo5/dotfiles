@@ -318,6 +318,14 @@ install_devbox() {
         log "Installing devbox..."
         curl -fsSL https://get.jetpack.io/devbox | bash
     fi
+    udo usermod -aG nix-users $USER
+    sudo usermod -aG nixbld $USER
+    sudo chmod 666 /nix/var/nix/daemon-socket/
+    sudo chmod 666 -R /nix/var/nix/daemon-socket/*
+    sudo chmod -R 755 /nix/var/nix/daemon-socket/
+    sudo chmod 666 /nix/var/nix/daemon-socket/socket
+    ls -la /nix/var/nix/daemon-socket/
+    sudo systemctl restart nix-daemon
 }
 
 install_font() {
