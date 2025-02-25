@@ -164,7 +164,11 @@ install_optional_tools() {
     
     if [[ $install_gum =~ ^[Yy]$ ]]; then
         log "Installing Gum..."
-        sudo snap install gum --classic
+        sudo mkdir -p /etc/apt/keyrings
+        curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+        sudo apt update && sudo apt install gum
+
     fi  
     if [[ $install_glab =~ ^[Yy]$ ]]; then
         log "Installing glab..."
