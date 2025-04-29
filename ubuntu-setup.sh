@@ -144,11 +144,13 @@ install_optional_tools() {
     local install_mongosh
     local install_gum
     local install_glab
+    local install_ghorg
     
     read -p "Would you like to install Terragrunt? (y/n) " install_terragrunt
     read -p "Would you like to install MongoDB Shell? (y/n) " install_mongosh
     read -p "Would you like to install Gum? (y/n) " install_gum
     read -p "Would you like to install glab ? (y/n) " install_glab
+    read -p "Would you like to install ghorg ? (y/n) " install_ghorg
     
     if [[ $install_terragrunt =~ ^[Yy]$ ]]; then
         log "Installing Terragrunt..."
@@ -173,6 +175,9 @@ install_optional_tools() {
     if [[ $install_glab =~ ^[Yy]$ ]]; then
         log "Installing glab..."
         sudo snap install glab
+    fi  
+    if [[ $install_ghorg =~ ^[Yy]$ ]]; then
+        install_ghorg
     fi
 }
 setup_bat() {
@@ -398,6 +403,92 @@ install_additional_tools() {
     fi
 }
 
+install_lazygit() {
+    log "Installing lazygit..."
+
+    # Check if lazygit is already installed
+    if command -v lazygit &> /dev/null; then
+        log "lazygit is already installed."
+        return
+    fi
+
+    # Check if the lazygit PPA is already added
+    if ! grep -q "ppa:lazygit" /etc/apt/sources.list.d/*.list 2>/dev/null; then
+        log "Adding lazygit PPA..."
+        sudo add-apt-repository -y ppa:lazygit-team/release
+        sudo apt-get update -qq
+    fi
+
+    # Install lazygit
+    install_package "lazygit"
+
+    # Create lazygit config directory if it doesn't exist
+    mkdir -p "$HOME/.config/lazygit"
+
+    # Create basic config file if it doesn't exist
+    if [ ! -f "$HOME/.config/lazygit/config.yml" ]; then
+        log "Creating lazygit configuration file..."
+        cat > "$HOME/.config/lazygit/config.yml" <<EOL
+gui:
+  # Show file tree view when opening lazygit
+  showFileTree: true
+  # Theme support (one of: auto, light, dark)
+  theme:
+    lightTheme: false
+    activeBorderColor:
+      - green
+      - bold
+    inactiveBorderColor:
+      - white
+    selectedLineBgColor:
+      - blue
+    optionsTextColor:
+      - blue
+  # Set to true to enable mouse support
+  mouseEvents: true
+  # Show git diff markers in check view
+  showDiffMarkers: true
+
+git:
+  # Show pull/push buttons in status panel
+  showPullRequestButtons: true
+  # Set to true to immediately push when `p` is pressed
+  skipHookPrefix: WIP
+  # Include the branch name when creating a commit
+  autoFetch: true
+
+keybinding:
+  # Define custom keybindings
+  universal:
+    # Reload lazygit
+    reload: 'R'
+
+quitOnTopLevelReturn: false
+# Run this command after exiting lazygit, e.g. cd to root of repo
+#os:
+#  editCommand: 'nvim'
+EOL
+    fi
+
+    # Add lazygit alias to shell config files
+    if [ -f "$HOME/.zshrc" ] && ! grep -q "alias lg=" "$HOME/.zshrc"; then
+        echo 'alias lg="lazygit"' >> "$HOME/.zshrc"
+    fi
+
+    if [ -f "$HOME/.bashrc" ] && ! grep -q "alias lg=" "$HOME/.bashrc"; then
+        echo 'alias lg="lazygit"' >> "$HOME/.bashrc"
+    fi
+
+    # Verify installation
+    if command -v lazygit &> /dev/null; then
+        success "lazygit installed successfully."
+        log "Configuration file created at $HOME/.config/lazygit/config.yml"
+        log "Use 'lazygit' or the alias 'lg' to start lazygit"
+    else
+        error "Failed to install lazygit."
+    fi
+}
+
 backup_configs() {
     log "Backing up existing configurations..."
     local backup_dir="$HOME/.config_backup"
@@ -407,6 +498,7 @@ backup_configs() {
         ".zshrc" ".p10k.zsh" ".config/starship.toml"
         ".config/fastfetch/config.jsonc" ".config/bat/config"
         ".bashrc" ".bash_logout" ".bash_profile" ".profile"
+        ".config/lazygit/config.yml"  # Added lazygit config to backup list
     )
     
     for config in "${configs[@]}"; do
@@ -423,7 +515,7 @@ setup_dotfiles() {
     cd "$HOME/dotfiles" || error "Failed to change directory to dotfiles."
     
     local -a STOW_PACKAGES=(
-        "zsh" "bash" "shell" "starship" "fonts" "bat" "localbin"
+        "zsh" "bash" "shell" "starship" "bat" "localbin" "git" "tmux" "lazygit"  # Added lazygit
     )
     
     for package in "${STOW_PACKAGES[@]}"; do
@@ -450,6 +542,42 @@ configure_shell_preference() {
     fi
 }
 
+install_ghorg() {
+    log "Installing ghorg..."
+
+    # Check if ghorg is already installed
+    if command -v ghorg &> /dev/null; then
+        log "ghorg is already installed."
+        return
+    fi
+
+    # Get the latest version of ghorg
+    GHORG_VERSION=$(curl -s https://api.github.com/repos/gabrie30/ghorg/releases/latest | grep 'tag_name' | cut -d '"' -f 4)
+    GHORG_URL="https://github.com/gabrie30/ghorg/releases/download/${GHORG_VERSION}/ghorg_${GHORG_VERSION#v}_Linux_x86_64.tar.gz"
+
+    # Create a temporary directory for the download
+    local temp_dir=$(mktemp -d)
+    
+    # Download and extract ghorg
+    curl -L $GHORG_URL -o "$temp_dir/ghorg.tar.gz"
+    tar -xzf "$temp_dir/ghorg.tar.gz" -C "$temp_dir"
+    
+    # Move ghorg to /usr/local/bin
+    sudo mv "$temp_dir/ghorg" /usr/local/bin/
+    chmod +x /usr/local/bin/ghorg
+    
+    # Clean up
+    rm -rf "$temp_dir"
+
+    # Check if installation was successful
+    if command -v ghorg &> /dev/null; then
+        success "ghorg installed successfully."
+        log "To use ghorg with GitLab, set your token with: export GHORG_GITLAB_TOKEN=your_gitlab_token"
+    else
+        error "Failed to install ghorg."
+    fi
+}
+
 main() {
     check_requirements
     setup_locales
@@ -466,6 +594,7 @@ main() {
     install_font
     setup_shell_environment
     install_additional_tools
+    install_lazygit  # Added lazygit installation
     install_optional_tools
     backup_configs
     setup_dotfiles

@@ -213,3 +213,6 @@ alias kdelcj='kubectl delete cronjob'
 alias kctx='kubie ctx'
 alias kns='kubie ns'
 
+alias capa='k resource-capacity --sort mem.util | grep worker | sort -k2 -n'
+alias kgall='kubectl get $(kubectl api-resources --namespaced=true --verbs=list -o name | tr "\\n" "," | sed "s/,$//")'
+alias kdelall='for resource in $(kubectl api-resources --namespaced=true --verbs=list -o name); do objects=$(kubectl get $resource -o name 2>/dev/null); if [ -n "$objects" ]; then echo "$objects" | xargs -r kubectl patch -p "{\"metadata\":{\"finalizers\":[]}}" --type=merge && echo "$objects" | xargs -r kubectl delete --force --grace-period=0; fi; done'
