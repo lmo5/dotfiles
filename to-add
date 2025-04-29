@@ -1,0 +1,14 @@
+ 2026  2025-02-25 15:17:18 grep nix /etc/group
+ sudo usermod -aG nix-users $USER
+ sudo usermod -aG nixbld $USER
+ sudo chmod 666 /nix/var/nix/daemon-socket/
+ sudo chmod 666 -R /nix/var/nix/daemon-socket/*
+ sudo chmod -R 755 /nix/var/nix/daemon-socket/
+ sudo chmod 666 /nix/var/nix/daemon-socket/socket
+ ls -la /nix/var/nix/daemon-socket/
+ sudo systemctl restart nix-daemon
+
+
+ add teller
+ add difftool
+ pipx install check-jsonschema

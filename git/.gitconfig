@@ -1,0 +1,84 @@
+[core]
+  ui = auto
+	editor = nvim -f
+	symlinks = false
+[branch]
+  sort = -committerdate
+[tag]
+  sort = version:refname
+[user]
+	name = Ayoub E.
+	email = ayoub.el-moukhtafi@pc-scol.fr
+[credential "https://gitlab.pc-scol.fr"]
+	helper = 
+	helper = !/usr/bin/glab auth git-credential
+[credential "https://github.com"]
+	helper = 
+	helper = !/usr/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper = 
+	helper = !/usr/bin/gh auth git-credential
+[color]
+  ui = auto
+[diff]
+  ; tool = difftastic
+  external = difft
+  ; algorithm = histogram
+  ; colorMoved = plain
+  ; mnemonicPrefix = true
+  ; renames = true
+[difftool]
+    prompt = false
+[difftool "difftastic"]
+  cmd = difft "$LOCAL" "$REMOTE"
+[pager]
+   difftool = true
+[merge]
+	tool = nvim -d
+	conflictstyle = zdiff3
+[rerere]
+	enabled = true
+  autoupdate = true
+[pull]
+	rebase = true
+[push]
+  default = simple
+  autoSetupRemote = true
+  followTags = true
+[fetch]
+  prune = true
+  pruneTags = true
+  all = true
+[help]
+  autocorrect = prompt
+[commit]
+  verbose = true
+[init]
+	defaultBranch = master
+# GitFlow related sections
+[gitflow "branch"]
+    master = master
+    develop = develop
+[gitflow "prefix"]
+    feature = feature/
+    release = release/
+    hotfix = hotfix/
+    bugfix = bugfix/
+    support = support/
+    versiontag = release-
+[alias]
+  dlog = -c diff.external=difft log --ext-diff
+  dshow = -c diff.external=difft show --ext-diff
+  ddiff = -c diff.external=difft diff
+	ldog = log --oneline --decorate --graph --all --color
+  plog = log --graph --simplify-merges --format='%C(yellow)%h %C(magenta)%G?%C(auto)%d%Creset %s %C(blue)(%cr par %cn)%Creset'
+	mine = "!git plog --author=\".*<$(git config user.email)>\""
+	today = "!git plog --since=midnight --author=\".*<$(git config user.email)>\""
+	loga = !git plog --all
+	serie = !serie -p kitty -o topo
+	code-changes = "!git log --format=format: --name-only | egrep -v '^$' | sort | uniq -c | sort -rg | head -10"
+	cc = "!git code-changes"
+[rebase]
+  autoSquash = true
+  autoStash = true
+  updateRefs = true
