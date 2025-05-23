@@ -280,3 +280,67 @@ lazyg() {
 	git commit -m "$1"
 	git push
 }
+
+
+#!/bin/bash
+
+# Function to download a GitHub file to the current directory
+# Function to download a GitHub file to the current directory
+download_github_file() {
+    local url="$1"
+    local filename="$2"
+    
+    # Check if URL is provided
+    if [ -z "$url" ]; then
+        echo "Error: No URL provided"
+        echo "Usage: download_github_file <github_url> [filename]"
+        return 1
+    fi
+    
+    # Convert GitHub URL to raw URL if needed
+    if [[ "$url" = *"github.com"* ]] && [[ "$url" != *"raw.githubusercontent.com"* ]]; then
+        # Convert from github.com/user/repo/blob/branch/path to raw.githubusercontent.com/user/repo/branch/path
+        raw_url=$(echo "$url" | sed 's|github\.com|raw.githubusercontent.com|' | sed 's|/blob/|/|')
+    else
+        raw_url="$url"
+    fi
+    
+    # Extract filename from URL if not provided
+    if [ -z "$filename" ]; then
+        filename=$(basename "$raw_url")
+    fi
+    
+    # Check if filename could be extracted
+    if [ -z "$filename" ] || [ "$filename" = "/" ]; then
+        echo "Error: Could not determine filename. Please provide a filename as second argument."
+        return 1
+    fi
+    
+    echo "Downloading: $raw_url"
+    echo "Saving as: $filename"
+    
+    # Download the file using curl
+    if command -v curl >/dev/null 2>&1; then
+        if curl -L -o "$filename" "$raw_url"; then
+            echo "Successfully downloaded: $filename"
+            return 0
+        else
+            echo "Error: Failed to download file"
+            return 1
+        fi
+    # Fallback to wget if curl is not available
+    elif command -v wget >/dev/null 2>&1; then
+        if wget -O "$filename" "$raw_url"; then
+            echo "Successfully downloaded: $filename"
+            return 0
+        else
+            echo "Error: Failed to download file"
+            return 1
+        fi
+    else
+        echo "Error: Neither curl nor wget is available"
+        return 1
+    fi
+}
+# Alternative shorter function name
+alias ghget='download_github_file'
