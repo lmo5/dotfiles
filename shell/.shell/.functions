@@ -281,10 +281,6 @@ lazyg() {
 	git push
 }
 
-
-#!/bin/bash
-
-# Function to download a GitHub file to the current directory
 # Function to download a GitHub file to the current directory
 download_github_file() {
     local url="$1"
@@ -344,3 +340,81 @@ download_github_file() {
 }
 # Alternative shorter function name
 alias ghget='download_github_file'
+
+
+
+kubie-auth() {
+    local configs_dir="${HOME}/.kube/configs"
+    local selected_config context_name kubeconfig_path
+
+    # Check if fzf is installed
+    if ! command -v fzf >/dev/null 2>&1; then
+        echo >&2 "Error: fzf is not installed. Please install it first."
+        echo >&2 "  Ubuntu/Debian: sudo apt install fzf"
+        echo >&2 "  macOS: brew install fzf"
+        echo >&2 "  Or visit: https://github.com/junegunn/fzf#installation"
+        return 1
+    fi
+
+    # Check if configs directory exists
+    if [ ! -d "$configs_dir" ]; then
+        echo >&2 "Error: Directory $configs_dir does not exist"
+        return 1
+    fi
+
+    # Select kubeconfig file
+    echo "Select a kubeconfig file:"
+    selected_config=$(find "$configs_dir" -type f -printf "%P\n" 2>/dev/null | sort | fzf --prompt="Select kubeconfig: " --height=40% --border)
+    [ -z "$selected_config" ] && { echo >&2 "No config file selected. Exiting."; return 1; }
+
+    kubeconfig_path="${configs_dir}/${selected_config}"
+    echo "Selected kubeconfig: $kubeconfig_path"
+
+    # Get available contexts
+    export KUBECONFIG="$kubeconfig_path"
+    local contexts=($(kubectl config get-contexts -o name 2>/dev/null))
+    [ ${#contexts[@]} -eq 0 ] && { echo >&2 "Error: No contexts found in the selected kubeconfig file"; return 1; }
+
+    # Select context
+    if [ ${#contexts[@]} -eq 1 ]; then
+        context_name="${contexts[1]}"
+        echo "Using single available context: $context_name"
+    else
+        echo "Select a context:"
+        context_name=$(printf '%s\n' "${contexts[@]}" | fzf --prompt="Select context: " --height=40% --border)
+        [ -z "$context_name" ] && { echo >&2 "No context selected. Exiting."; return 1; }
+    fi
+
+    echo "Selected context: $context_name"
+    echo "Authenticating to Kubernetes cluster..."
+
+    # Switch context and authenticate
+    kubectl config use-context "$context_name" >/dev/null
+    echo "Triggering authentication flow..."
+    echo "If a browser opens, complete the authentication there..."
+    
+    if kubectl get pods --request-timeout=300s >/dev/null 2>&1; then
+        echo "Authentication successful!"
+        echo "Starting kubie with context: $context_name"
+        kubie ctx "$context_name"
+    else
+        echo >&2 "Authentication failed or timed out"
+        echo >&2 "Please check your network connection and try again"
+        return 1
+    fi
+}
+# Optional: Create shorter aliases
+alias ka='kubie-auth'
+alias kauth='kubie-auth'
+
+
+# function to logout of pinniped
+
+pinniped-logout() {
+ rm -rf $HOME/.config/pinniped/sessions.yaml*
+ echo "Pinniped session cleared. You are now logged out."
+ rm -rf $HOME/.config/pinniped/credentials.yaml*
+ echo "Pinniped credentials cleared. You are now logged out."
+}
+
+alias plogout='pinniped-logout'

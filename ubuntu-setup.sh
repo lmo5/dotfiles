@@ -129,6 +129,51 @@ install_stern() {
     fi
 }
 
+install_difftastic() {
+    log "Installing difftastic..."
+
+    # Check if difftastic is already installed
+    if command -v difft &> /dev/null; then
+        log "difftastic is already installed."
+        return
+    fi
+
+    # Get the latest version of difftastic
+    DIFFT_VERSION=$(curl -s https://api.github.com/repos/Wilfred/difftastic/releases/latest | grep 'tag_name' | cut -d '"' -f 4)
+    DIFFT_URL="https://github.com/Wilfred/difftastic/releases/download/${DIFFT_VERSION}/difft-x86_64-unknown-linux-gnu.tar.gz"
+
+    # Create a temporary directory for the download
+    local temp_dir=$(mktemp -d)
+    
+    # Download and extract difftastic
+    curl -L $DIFFT_URL -o "$temp_dir/difft.tar.gz"
+    tar -xzf "$temp_dir/difft.tar.gz" -C "$temp_dir"
+    
+    # Move difft to /usr/local/bin
+    sudo mv "$temp_dir/difft" /usr/local/bin/
+    chmod +x /usr/local/bin/difft
+    
+    # Clean up
+    rm -rf "$temp_dir"
+
+    # Configure git to use difftastic as external diff tool (optional)
+    if command -v git &> /dev/null; then
+        log "Configuring git to use difftastic..."
+        git config --global diff.external difft
+        git config --global difftool.prompt false
+        git config --global alias.dft difftool
+    fi
+
+    # Check if installation was successful
+    if command -v difft &> /dev/null; then
+        success "difftastic installed successfully."
+        log "You can use 'difft file1 file2' to compare files"
+        log "Or use 'git dft' to view git diffs with difftastic"
+        log "To disable git integration: git config --global --unset diff.external"
+    else
+        error "Failed to install difftastic."
+    fi
+}
 
 install_tfenv() {
     log "Installing tfenv..."
@@ -145,12 +190,14 @@ install_optional_tools() {
     local install_gum
     local install_glab
     local install_ghorg
+    local install_difftastic
     
     read -p "Would you like to install Terragrunt? (y/n) " install_terragrunt
     read -p "Would you like to install MongoDB Shell? (y/n) " install_mongosh
     read -p "Would you like to install Gum? (y/n) " install_gum
     read -p "Would you like to install glab ? (y/n) " install_glab
     read -p "Would you like to install ghorg ? (y/n) " install_ghorg
+    read -p "Would you like to install difftastic? (y/n) " install_difftastic
     
     if [[ $install_terragrunt =~ ^[Yy]$ ]]; then
         log "Installing Terragrunt..."
@@ -178,6 +225,9 @@ install_optional_tools() {
     fi  
     if [[ $install_ghorg =~ ^[Yy]$ ]]; then
         install_ghorg
+    fi
+    if [[ $install_difftastic =~ ^[Yy]$ ]]; then
+        install_difftastic
     fi
 }
 setup_bat() {
@@ -323,7 +373,7 @@ install_devbox() {
         log "Installing devbox..."
         curl -fsSL https://get.jetpack.io/devbox | bash
     fi
-    udo usermod -aG nix-users $USER
+    sudo usermod -aG nix-users $USER
     sudo usermod -aG nixbld $USER
     sudo chmod 666 /nix/var/nix/daemon-socket/
     sudo chmod 666 -R /nix/var/nix/daemon-socket/*
@@ -594,8 +644,8 @@ main() {
     # install_font
     # setup_shell_environment
     # install_additional_tools
-    install_lazygit  # Added lazygit installation
-    # install_optional_tools
+    # install_lazygit  # Added lazygit installation
+    install_optional_tools
     # backup_configs
     # setup_dotfiles
     # configure_shell_preference
