@@ -8,6 +8,7 @@ LOG_FILE="/var/log/ext4-dedupe.log"
 HASH_FILE="/var/lib/duperemove/ext4.hash"
 BACKUP_DIR="/tmp/dedupe-backup-$(date +%Y%m%d)"
 DRY_RUN=${1:-false}
+DUPE_TOOL=""  # Will be set in check_prerequisites
 
 # Directories to deduplicate (customize as needed)
 DEDUPE_DIRS=(
@@ -44,9 +45,22 @@ check_prerequisites() {
         error_exit "This script must be run as root"
     fi
     
-    # Check available tools
+    # Check available tools - prefer fdupes over jdupes due to safety restrictions
+    if command -v fdupes >/dev/null 2>&1; then
+        DUPE_TOOL="fdupes"
+        log "Using fdupes for duplicate detection"
+    elif command -v rdfind >/dev/null 2>&1; then
+        DUPE_TOOL="rdfind"
+        log "Using rdfind for duplicate detection"
+    elif command -v jdupes >/dev/null 2>&1; then
+        DUPE_TOOL="jdupes"
+        log "Using jdupes for duplicate detection (may have limitations)"
+    else
+        error_exit "No duplicate detection tool found. Install fdupes, rdfind, or jdupes"
+    fi
+    
+    # Check duperemove
     command -v duperemove >/dev/null 2>&1 || error_exit "duperemove not installed"
-    command -v jdupes >/dev/null 2>&1 || error_exit "jdupes not installed"
     
     # Check filesystem type
     local fs_type=$(df -T / | tail -1 | awk '{print $2}')
@@ -75,34 +89,62 @@ create_backup_list() {
 }
 
 analyze_duplicates() {
-    log "Analyzing filesystem for duplicates..."
+    log "Analyzing filesystem for duplicates using $DUPE_TOOL..."
     
     for dir in "${DEDUPE_DIRS[@]}"; do
         if [[ -d "$dir" ]]; then
             log "Analyzing directory: $dir"
             
-            # Use jdupes for detailed analysis
-            log "Running detailed duplicate analysis for $dir..."
-            if jdupes -r -S "$dir" 2>/dev/null > "/tmp/jdupes-$dir-analysis.txt"; then
-                # Extract summary information
-                local summary=$(tail -10 "/tmp/jdupes-$dir-analysis.txt")
-                log "Summary for $dir:"
-                echo "$summary" | tee -a "$LOG_FILE"
-                
-                # Show some example duplicates
-                log "Example duplicate files found in $dir:"
-                jdupes -r "$dir" 2>/dev/null | head -20 | tee -a "$LOG_FILE"
-                
-                # Calculate potential space savings
-                local total_wasted=$(grep "duplicate files" "/tmp/jdupes-$dir-analysis.txt" | grep -o '[0-9,]* bytes' | sed 's/,//g' | awk '{sum+=$1} END {print sum}')
-                if [[ -n "$total_wasted" && "$total_wasted" -gt 0 ]]; then
-                    local mb_wasted=$((total_wasted / 1024 / 1024))
-                    log "Potential space savings in $dir: ${mb_wasted}MB"
-                fi
-            else
-                log "Could not analyze $dir"
-            fi
+            # Create safe filename for temporary file
+            local safe_dir=$(echo "$dir" | sed 's|/|_|g')
+            local temp_file="/tmp/dupe-analysis-${safe_dir}.txt"
             
+            case "$DUPE_TOOL" in
+                "fdupes")
+                    log "Running fdupes analysis..."
+                    if fdupes -r -S "$dir" > "$temp_file" 2>&1; then
+                        if [[ -s "$temp_file" ]]; then
+                            log "Fdupes analysis completed for $dir"
+                            log "Summary:"
+                            tail -10 "$temp_file" | tee -a "$LOG_FILE"
+                            log "Example duplicates:"
+                            head -20 "$temp_file" | tee -a "$LOG_FILE"
+                        else
+                            log "No duplicates found by fdupes in $dir"
+                        fi
+                    else
+                        log "Error running fdupes on $dir"
+                    fi
+                    ;;
+                "rdfind")
+                    log "Running rdfind analysis..."
+                    if rdfind -dryrun true "$dir" > "$temp_file" 2>&1; then
+                        log "Rdfind analysis completed for $dir"
+                        log "Results:"
+                        grep -E "(duplicate|bytes)" "$temp_file" | head -20 | tee -a "$LOG_FILE"
+                    else
+                        log "Error running rdfind on $dir"
+                    fi
+                    ;;
+                "jdupes")
+                    log "Running jdupes directory scan..."
+                    # Use directory mode since file specs are disabled
+                    if jdupes -r -S "$dir" > "$temp_file" 2>&1; then
+                        if [[ -s "$temp_file" ]]; then
+                            log "Jdupes analysis completed for $dir"
+                            tail -10 "$temp_file" | tee -a "$LOG_FILE"
+                        else
+                            log "No duplicates found by jdupes in $dir"
+                        fi
+                    else
+                        log "Error running jdupes on $dir"
+                        cat "$temp_file" | tee -a "$LOG_FILE"
+                    fi
+                    ;;
+            esac
+            
+            # Always run the simple check as backup
+            simple_duplicate_check "$dir"
             log "---"
         else
             log "Directory $dir does not exist, skipping"
@@ -146,17 +188,45 @@ deduplicate_with_hardlinks() {
     local target_dir="$1"
     
     if [[ "$DRY_RUN" == "true" ]]; then
-        log "DRY RUN: Would create hard links in $target_dir"
-        jdupes -r "$target_dir" 2>/dev/null | head -20 | tee -a "$LOG_FILE"
-    else
-        log "Creating hard links for duplicates in $target_dir"
+        log "DRY RUN: Would create hard links in $target_dir using $DUPE_TOOL"
         
-        # Create hard links for duplicates
-        if jdupes -r -L "$target_dir" 2>&1 | tee -a "$LOG_FILE"; then
-            log "Hard link creation completed for $target_dir"
-        else
-            log "WARNING: Hard link creation reported issues for $target_dir"
-        fi
+        case "$DUPE_TOOL" in
+            "fdupes")
+                log "  Would run: fdupes -r -L $target_dir"
+                fdupes -r "$target_dir" 2>/dev/null | head -10 | while read line; do
+                    log "  Found: $line"
+                done
+                ;;
+            "rdfind")
+                log "  Would run: rdfind -makehardlinks true $target_dir"
+                rdfind -dryrun true "$target_dir" 2>/dev/null | grep duplicate | head -5 | tee -a "$LOG_FILE"
+                ;;
+            "jdupes")
+                log "  Would run: jdupes -r -L $target_dir (if file specs were enabled)"
+                ;;
+        esac
+    else
+        log "Creating hard links for duplicates in $target_dir using $DUPE_TOOL"
+        
+        case "$DUPE_TOOL" in
+            "fdupes")
+                if fdupes -r -L "$target_dir" 2>&1 | tee -a "$LOG_FILE"; then
+                    log "Hard link creation with fdupes completed for $target_dir"
+                else
+                    log "WARNING: Hard link creation with fdupes reported issues for $target_dir"
+                fi
+                ;;
+            "rdfind")
+                if rdfind -makehardlinks true "$target_dir" 2>&1 | tee -a "$LOG_FILE"; then
+                    log "Hard link creation with rdfind completed for $target_dir"
+                else
+                    log "WARNING: Hard link creation with rdfind reported issues for $target_dir"
+                fi
+                ;;
+            *)
+                log "Cannot create hard links with $DUPE_TOOL, skipping $target_dir"
+                ;;
+        esac
     fi
 }
 
@@ -201,9 +271,33 @@ main() {
     log "Starting ext4 deduplication process..."
     log "Dry run mode: $DRY_RUN"
     
-    check_prerequisites
-    create_backup_list
-    analyze_duplicates
+simple_duplicate_check() {
+    local target_dir="$1"
+    
+    log "Running simple duplicate check for $target_dir"
+    
+    # Find files by size first (much faster)
+    log "Finding files with identical sizes..."
+    find "$target_dir" -type f -printf '%s %p\n' 2>/dev/null | \
+        sort -n | \
+        uniq -d -w 10 | \
+        head -20 > "/tmp/same-size-files.txt"
+    
+    if [[ -s "/tmp/same-size-files.txt" ]]; then
+        log "Files with identical sizes (potential duplicates):"
+        cat "/tmp/same-size-files.txt" | tee -a "$LOG_FILE"
+        
+        # Count potential duplicates
+        local count=$(wc -l < "/tmp/same-size-files.txt")
+        log "Found $count files with identical sizes"
+    else
+        log "No files with identical sizes found"
+    fi
+    
+    # Look for common duplicate patterns
+    log "Looking for common backup/temporary file patterns..."
+    find "$target_dir" -type f \( -name "*.bak" -o -name "*~" -o -name "*.tmp" -o -name "*.old" -o -name "Copy of *" -o -name "*copy*" \) 2>/dev/null | head -10 | tee -a "$LOG_FILE"
+}
     
     # Process each directory
     for dir in "${DEDUPE_DIRS[@]}"; do
