@@ -565,7 +565,7 @@ setup_dotfiles() {
     cd "$HOME/dotfiles" || error "Failed to change directory to dotfiles."
     
     local -a STOW_PACKAGES=(
-        "zsh" "bash" "shell" "starship" "bat" "localbin" "git" "tmux" "lazygit"  # Added lazygit
+        "zsh" "bash" "shell" "starship" "bat" "localbin" "git" "tmux" "lazygit" "ghorg"
     )
     
     for package in "${STOW_PACKAGES[@]}"; do
