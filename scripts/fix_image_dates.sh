@@ -70,18 +70,29 @@ process_file() {
             fi
         else
             # For videos: set CreateDate, ModifyDate, and MediaCreateDate
+            # First try with error suppression for corrupted files
             if exiftool -overwrite_original \
                        -CreateDate="$exif_datetime" \
                        -ModifyDate="$exif_datetime" \
                        -MediaCreateDate="$exif_datetime" \
                        -DateTimeOriginal="$exif_datetime" \
+                       -ignoreMinorErrors \
                        -quiet \
-                       "$file"; then
+                       "$file" 2>/dev/null; then
                 echo "✅ Fixed video: $filename -> $exif_datetime"
                 ((processed++))
             else
-                echo "❌ Failed to fix video: $filename"
-                ((skipped++))
+                # Try alternative approach for corrupted files - only set filesystem dates
+                echo "⚠️  Video appears corrupted, trying filesystem date only: $filename"
+                # Convert to filesystem timestamp format
+                fs_date="${year}${month}${day}1200.00"
+                if touch -t "$fs_date" "$file"; then
+                    echo "✅ Fixed filesystem date: $filename -> $year-$month-$day"
+                    ((processed++))
+                else
+                    echo "❌ Failed completely: $filename (file may be corrupted)"
+                    ((skipped++))
+                fi
             fi
         fi
     else

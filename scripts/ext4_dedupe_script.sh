@@ -12,10 +12,7 @@ DUPE_TOOL=""  # Will be set in check_prerequisites
 
 # Directories to deduplicate (customize as needed)
 DEDUPE_DIRS=(
-    "/home"
-    "/var/cache"
-    "/usr/share/doc"
-    "/opt"
+    "/media/ayoub/data/private/phone_backups"
 )
 
 # Exclude patterns (files to skip)
