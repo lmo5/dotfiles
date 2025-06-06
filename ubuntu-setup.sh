@@ -399,6 +399,32 @@ install_font() {
     fi
 }
 
+install_nerd_fonts(){
+     FONT_NAME="MesloLGS Nerd Font Mono"
+    if fc-list :family | grep -iq "$FONT_NAME"; then
+        echo "Font '$FONT_NAME' is installed."
+    else
+        echo "Installing font '$FONT_NAME'"
+        # Change this URL to correspond with the correct font
+        FONT_URL="https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Meslo.zip"
+        FONT_DIR="$HOME/.local/share/fonts"
+        # check if the file is accessible
+        if wget -q --spider "$FONT_URL"; then
+            TEMP_DIR=$(mktemp -d)
+            wget -q --show-progress $FONT_URL -O "$TEMP_DIR"/"${FONT_NAME}".zip
+            unzip "$TEMP_DIR"/"${FONT_NAME}".zip -d "$TEMP_DIR"
+            mkdir -p "$FONT_DIR"/"$FONT_NAME"
+            mv "${TEMP_DIR}"/*.ttf "$FONT_DIR"/"$FONT_NAME"
+            # Update the font cache
+            fc-cache -fv
+            # delete the files created from this
+            rm -rf "${TEMP_DIR}"
+            echo "'$FONT_NAME' installed successfully."
+        else
+            echo "Font '$FONT_NAME' not installed. Font URL is not accessible."
+        fi
+    fi
+}
 setup_shell_environment() {
     log "Setting up shell environment..."
     
@@ -641,11 +667,12 @@ main() {
     # install_devbox
     # install_stern
     # install_tfenv
+    install_nerd_fonts
     # install_font
     # setup_shell_environment
     # install_additional_tools
     # install_lazygit  # Added lazygit installation
-    install_optional_tools
+    # install_optional_tools
     # backup_configs
     # setup_dotfiles
     # configure_shell_preference
