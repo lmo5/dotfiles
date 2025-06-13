@@ -216,3 +216,11 @@ alias kns='kubie ns'
 alias capa='k resource-capacity --sort mem.util | grep worker | sort -k2 -n'
 alias kgall='kubectl get $(kubectl api-resources --namespaced=true --verbs=list -o name | tr "\\n" "," | sed "s/,$//")'
 alias kdelall='for resource in $(kubectl api-resources --namespaced=true --verbs=list -o name); do objects=$(kubectl get $resource -o name 2>/dev/null); if [ -n "$objects" ]; then echo "$objects" | xargs -r kubectl patch -p "{\"metadata\":{\"finalizers\":[]}}" --type=merge && echo "$objects" | xargs -r kubectl delete --force --grace-period=0; fi; done'
+alias azlogin='export https_proxy=http://10.49.64.5:8080/ ; export http_proxy=http://10.49.64.5:8080/ az login'
+
+# Reload shell alias - works for both bash and zsh
+alias reload='if [ -n "$ZSH_VERSION" ]; then source ~/.zshrc && echo "🔄 Zsh reloaded"; elif [ -n "$BASH_VERSION" ]; then source ~/.bashrc && echo "🔄 Bash reloaded"; else echo "❌ Unknown shell"; fi'
+
+# Alternative aliases for convenience
+alias rl='reload'
+alias refresh='reload'

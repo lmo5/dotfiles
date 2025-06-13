@@ -100,8 +100,10 @@ cd ()
 {
 	if [ -n "$1" ]; then
 		builtin cd "$@" && ls
+        auto_git_update
 	else
 		builtin cd ~ && ls
+        auto_git_update
 	fi
 }
 
@@ -342,7 +344,6 @@ download_github_file() {
 alias ghget='download_github_file'
 
 
-
 kubie-auth() {
     local configs_dir="${HOME}/.kube/configs"
     local selected_config context_name kubeconfig_path
@@ -418,3 +419,53 @@ pinniped-logout() {
 }
 
 alias plogout='pinniped-logout'
+
+# Auto Git Update System
+auto_git_update() {
+    if [ -d ".git" ] || git rev-parse --git-dir > /dev/null 2>&1; then
+        echo "🔄 Auto-updating git repository..."
+        
+        if ! git diff-index --quiet HEAD -- 2>/dev/null; then
+            echo "📦 Stashing work in progress..."
+            git stash push -m "Auto-stash before update $(date)"
+            STASHED=true
+        else
+            STASHED=false
+        fi
+        
+        CURRENT_BRANCH=$(git branch --show-current)
+        echo "📡 Fetching latest changes..."
+        git fetch origin
+        
+        if git show-ref --verify --quiet refs/remotes/origin/$CURRENT_BRANCH; then
+            LOCAL=$(git rev-parse HEAD)
+            REMOTE=$(git rev-parse origin/$CURRENT_BRANCH)
+            
+            if [ "$LOCAL" != "$REMOTE" ]; then
+                echo "⬇️  Pulling latest changes..."
+                git pull origin $CURRENT_BRANCH
+                
+                if [ "$STASHED" = true ]; then
+                    echo "📤 Restoring your work in progress..."
+                    if git stash pop; then
+                        echo "✅ Your changes have been restored on top of the latest updates"
+                    else
+                        echo "⚠️  Merge conflict detected. Your changes are in the stash."
+                        echo "   Run 'git stash pop' manually to resolve conflicts."
+                    fi
+                fi
+            else
+                echo "✅ Repository is already up to date"
+                if [ "$STASHED" = true ]; then
+                    git stash pop
+                fi
+            fi
+        else
+            echo "⚠️  Remote branch not found, skipping pull"
+            if [ "$STASHED" = true ]; then
+                git stash pop
+            fi
+        fi
+        echo ""
+    fi
+}
