@@ -655,27 +655,27 @@ install_ghorg() {
 }
 
 main() {
-    # check_requirements
-    # setup_locales
-    # setup_repositories
-    # install_dependencies
-    # setup_bat
-    # setup_direnv
-    # install_kubernetes_tools
-    # install_krew
-    # install_kubie
-    # install_devbox
-    # install_stern
-    # install_tfenv
+     check_requirements
+    setup_locales
+    setup_repositories
+    install_dependencies
+    setup_bat
+    setup_direnv
+    install_kubernetes_tools
+    install_krew
+    install_kubie
+    install_devbox
+    install_stern
+    install_tfenv
     install_nerd_fonts
     # install_font
-    # setup_shell_environment
-    # install_additional_tools
-    # install_lazygit  # Added lazygit installation
-    # install_optional_tools
-    # backup_configs
-    # setup_dotfiles
-    # configure_shell_preference
+    setup_shell_environment
+    install_additional_tools
+    install_lazygit  # Added lazygit installation
+    install_optional_tools
+    backup_configs
+    setup_dotfiles
+    configure_shell_preference
     success "Setup complete!"
 }
 
