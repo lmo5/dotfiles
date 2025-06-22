@@ -152,7 +152,7 @@ if [ "$SCAN_TYPES" = "all" ]; then
     run_scan "archives"
     # Also run general duplicate scan for any other files
     echo "Scanning for other duplicate files..."
-    czkawka_cli duplicate --directories "$TARGET_DIR" >> "$SCAN_OUTPUT"
+    czkawka_cli dup --directories "$TARGET_DIR" >> "$SCAN_OUTPUT"
 else
     run_scan "$SCAN_TYPES"
 fi
