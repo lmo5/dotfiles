@@ -7,6 +7,7 @@ $directory\
 [](fg:#434C5E bg:#4C566A)\
 $git_branch\
 $git_status\
+$custom.git_url\
 [](fg:#4C566A bg:#86BBD8)\
 $c\
 $elixir\
@@ -82,6 +83,13 @@ format = '[ $symbol $branch ]($style)'
 [git_status]
 style = "bg:#4C566A"
 format = '[$all_status$ahead_behind ]($style)'
+
+[custom.git_url]
+command = '''git config --get remote.origin.url 2>/dev/null | sed 's/git@github.com:/https:\/\/github.com\//' | sed 's/\.git$//' || echo "" '''
+when = "git rev-parse --git-dir"
+format = '[  Repo ]($style)'
+style = "blue underline"
+
 
 [golang]
 symbol = " "

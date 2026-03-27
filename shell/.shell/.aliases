@@ -50,7 +50,7 @@ alias p="ps aux | grep "
 alias f="find . | grep "
 alias kssh="kitty +kitten ssh"
 alias docker-clean='docker container prune -f ; docker image prune -f ; docker network prune -f ; docker volume prune -f'
-alias cat='batcat'
+alias cat='bat'
 
 
 
@@ -224,3 +224,44 @@ alias reload='if [ -n "$ZSH_VERSION" ]; then source ~/.zshrc && echo "🔄 Zsh r
 # Alternative aliases for convenience
 alias rl='reload'
 alias refresh='reload'
+alias gemini='export NODE_TLS_REJECT_UNAUTHORIZED="0" && gemini'
+
+# Update system (apt)
+alias update='sudo apt update && sudo apt upgrade -y && sudo apt dist-upgrade -y && sudo apt autoremove -y'
+
+# Start a simple python web server on port 8000
+alias serve='python3 -m http.server 8000'
+
+# Git status
+alias gs='git status'
+
+# Git add all
+alias gaa='git add .'
+
+# Git commit with message
+alias gcmsg='git commit -m'
+
+# Git push, and push force with lease (safer than -f)
+alias gp='git push'
+alias gpf='git push --force-with-lease'
+
+# Git pull
+alias gpl='git pull'
+
+# Git log with a cleaner, more informative output
+alias gl='git log --oneline --graph --decorate --all'
+
+# Amend the last commit without changing the commit message
+alias gcamend='git commit --amend --no-edit'
+
+# Get ingress resources across all namespaces
+alias k-ing='kubectl get ingress -A'
+
+# Get events, sorted by time
+alias kge='kubectl get events --sort-by=.metadata.creationTimestamp'
+
+# Describe a resource
+alias kdesc='kubectl describe'
+
+# Helm list all
+alias hla='helm ls -A'

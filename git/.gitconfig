@@ -8,7 +8,7 @@
   sort = version:refname
 [user]
 	name = Ayoub E.
-	email = ayoub.el-moukhtafi@pc-scol.fr
+	email = ayoub_el_moukhtafi@ext.carrefour.com
 [credential "https://gitlab.pc-scol.fr"]
 	helper = 
 	helper = !/usr/bin/glab auth git-credential
@@ -82,3 +82,6 @@
   autoSquash = true
   autoStash = true
   updateRefs = true
+[credential "https://gitlab.com"]
+	helper = 
+	helper = !/usr/bin/glab auth git-credential

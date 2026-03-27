@@ -17,7 +17,7 @@ GHORG_GITHUB_TOKEN:
 # Defaults to using key returned by
 # $ security find-internet-password -s gitlab.com  | grep "acct" | awk -F\" '{ print $4 }'
 # flag (--token, -t) eg: --token=bGVhdmUgYSBjb21tZW50IG9uIGlzc3VlIDY2
-GHORG_GITLAB_TOKEN:
+GHORG_GITLAB_TOKEN: glpat-kRD3v4v1FX3R7D7S_eVy
 
 # clones repos in a directory structure that matches gitlab namespaces eg company/unit/subunit/app would clone into ghorg/org/unit/subunit/app
 # flag (--preserve-dir)
@@ -61,7 +61,7 @@ GHORG_BITBUCKET_USERNAME:
 # Change SCM base url, for on self hosted instances, gitea require this
 # default: uses github/gitlab public api
 # flag (--base-url) eg: --base-url=https://my.instance.com
-GHORG_SCM_BASE_URL: https://gitlab.pc-scol.fr/api/v4
+GHORG_SCM_BASE_URL: https://gitlab.com/api/v4
 
 # Which provider to clone from (github, gitlab, gitea or bitbucket)
 # default: github
@@ -71,12 +71,12 @@ GHORG_SCM_TYPE: gitlab
 # How you'd like to clone the repos (https or ssh)
 # default: https
 # flag (--protocol) eg: --protocol=https
-GHORG_CLONE_PROTOCOL: ssh
+GHORG_CLONE_PROTOCOL: https
 
 # This is where your ghorg directory will be created, use absolute pathing, shell expansions will not work
 # default: YOUR_HOME_DIR/ghorg
 # flag (--path, -p) eg: --path=/tmp/ghorg
-GHORG_ABSOLUTE_PATH_TO_CLONE_TO: /home/ayoubel-moukhtafi/work/PC-Scol/repo/
+GHORG_ABSOLUTE_PATH_TO_CLONE_TO: /home/ayoub/work/ecom/
 
 # Branch ghorg resets and leaves checked out
 # default: default branch

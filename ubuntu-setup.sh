@@ -374,6 +374,7 @@ install_devbox() {
         curl -fsSL https://get.jetpack.io/devbox | bash
     fi
     sudo usermod -aG nix-users $USER
+    sudo usermod -aG nix-users $USER
     sudo usermod -aG nixbld $USER
     sudo chmod 666 /nix/var/nix/daemon-socket/
     sudo chmod 666 -R /nix/var/nix/daemon-socket/*
