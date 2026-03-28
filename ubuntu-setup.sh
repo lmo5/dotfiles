@@ -72,12 +72,6 @@ setup_repositories() {
         echo "deb [signed-by=/etc/apt/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com noble main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
     fi
 
-    # MongoDB repository
-    if [ ! -f /etc/apt/keyrings/mongodb-archive-keyring.gpg ]; then
-        wget -qO- https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg --dearmor -o /etc/apt/keyrings/mongodb-archive-keyring.gpg
-        echo "deb [signed-by=/etc/apt/keyrings/mongodb-archive-keyring.gpg] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-    fi
-
     # Update package lists
     log "Updating package lists..."
     sudo apt-get update -qq
@@ -186,14 +180,12 @@ install_tfenv() {
 
 install_optional_tools() {
     local install_terragrunt
-    local install_mongosh
     local install_gum
     local install_glab
     local install_ghorg
     local install_difftastic
     
     read -p "Would you like to install Terragrunt? (y/n) " install_terragrunt
-    read -p "Would you like to install MongoDB Shell? (y/n) " install_mongosh
     read -p "Would you like to install Gum? (y/n) " install_gum
     read -p "Would you like to install glab ? (y/n) " install_glab
     read -p "Would you like to install ghorg ? (y/n) " install_ghorg
@@ -204,11 +196,6 @@ install_optional_tools() {
         TERRAGRUNT_VERSION=$(curl -s https://api.github.com/repos/gruntwork-io/terragrunt/releases/latest | grep tag_name | cut -d '"' -f 4)
         wget -q "https://github.com/gruntwork-io/terragrunt/releases/download/${TERRAGRUNT_VERSION}/terragrunt_linux_amd64" -O ~/.local/bin/terragrunt
         chmod +x ~/.local/bin/terragrunt
-    fi
-    
-    if [[ $install_mongosh =~ ^[Yy]$ ]]; then
-        log "Installing MongoDB Shell..."
-        install_package "mongodb-mongosh"
     fi
     
     if [[ $install_gum =~ ^[Yy]$ ]]; then
