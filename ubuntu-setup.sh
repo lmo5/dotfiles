@@ -366,15 +366,22 @@ install_devbox() {
         log "Installing devbox..."
         curl -fsSL https://get.jetpack.io/devbox | bash
     fi
-    sudo usermod -aG nix-users $USER
-    sudo usermod -aG nix-users $USER
-    sudo usermod -aG nixbld $USER
-    sudo chmod 666 /nix/var/nix/daemon-socket/
-    sudo chmod 666 -R /nix/var/nix/daemon-socket/*
-    sudo chmod -R 755 /nix/var/nix/daemon-socket/
-    sudo chmod 666 /nix/var/nix/daemon-socket/socket
-    ls -la /nix/var/nix/daemon-socket/
-    sudo systemctl restart nix-daemon
+    # Add user to Nix groups if they exist
+    if getent group nix-users > /dev/null 2>&1; then
+        sudo usermod -aG nix-users $USER
+    fi
+    if getent group nixbld > /dev/null 2>&1; then
+        sudo usermod -aG nixbld $USER
+    fi
+    # Set permissions on Nix daemon socket if it exists
+    if [ -d /nix/var/nix/daemon-socket ]; then
+        sudo chmod 666 /nix/var/nix/daemon-socket/
+        sudo chmod 666 -R /nix/var/nix/daemon-socket/*
+        sudo chmod -R 755 /nix/var/nix/daemon-socket/
+        sudo chmod 666 /nix/var/nix/daemon-socket/socket
+        ls -la /nix/var/nix/daemon-socket/
+        sudo systemctl restart nix-daemon
+    fi
 }
 
 install_font() {
