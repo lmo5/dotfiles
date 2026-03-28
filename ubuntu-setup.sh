@@ -237,15 +237,22 @@ setup_direnv() {
     # Add direnv hook to shell configs
     local zsh_hook='eval "$(direnv hook zsh)"'
     local bash_hook='eval "$(direnv hook bash)"'
+    local path_export='export PATH="$HOME/.local/bin:$PATH"'
     
     # Add to .zshrc if exists and hook not already present
     if [ -f "$HOME/.zshrc" ] && ! grep -q "direnv hook zsh" "$HOME/.zshrc"; then
         echo "$zsh_hook" >> "$HOME/.zshrc"
     fi
+    if [ -f "$HOME/.zshrc" ] && ! grep -q "$HOME/.local/bin" "$HOME/.zshrc"; then
+        echo "$path_export" >> "$HOME/.zshrc"
+    fi
     
     # Add to .bashrc if exists and hook not already present
     if [ -f "$HOME/.bashrc" ] && ! grep -q "direnv hook bash" "$HOME/.bashrc"; then
         echo "$bash_hook" >> "$HOME/.bashrc"
+    fi
+    if [ -f "$HOME/.bashrc" ] && ! grep -q "$HOME/.local/bin" "$HOME/.bashrc"; then
+        echo "$path_export" >> "$HOME/.bashrc"
     fi
     
     # Create default .envrc template
@@ -575,7 +582,7 @@ backup_configs() {
         ".zshrc" ".p10k.zsh" ".config/starship.toml"
         ".config/fastfetch/config.jsonc" ".config/bat/config"
         ".bashrc" ".bash_logout" ".bash_profile" ".profile"
-        ".config/lazygit/config.yml"  # Added lazygit config to backup list
+        ".config/lazygit/config.yml" ".gitconfig"  # Added lazygit config and gitconfig to backup list
     )
     
     for config in "${configs[@]}"; do
@@ -590,6 +597,9 @@ backup_configs() {
 setup_dotfiles() {
     log "Setting up dotfiles..."
     cd "$HOME/dotfiles" || error "Failed to change directory to dotfiles."
+    
+    # Create localbin directory if it doesn't exist
+    mkdir -p localbin
     
     local -a STOW_PACKAGES=(
         "zsh" "bash" "shell" "starship" "bat" "localbin" "git" "tmux" "lazygit" "ghorg"
