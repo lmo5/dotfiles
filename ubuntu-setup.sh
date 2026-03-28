@@ -650,13 +650,13 @@ install_ghorg() {
 
 main() {
      check_requirements
-    setup_locales
-    setup_repositories
-    install_dependencies
-    setup_bat
-    setup_direnv
-    install_kubernetes_tools
-    install_krew
+#     setup_locales
+#     setup_repositories
+#     install_dependencies
+#     setup_bat
+#     setup_direnv
+#     install_kubernetes_tools
+#     install_krew
     install_kubie
     install_devbox
     install_stern
