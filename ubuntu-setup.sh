@@ -84,7 +84,7 @@ install_dependencies() {
         bash bash-completion tar bat tree multitail fastfetch
         wget unzip fontconfig neovim zsh stow curl git
         kubectl apt-transport-https ca-certificates direnv tmux htop
-        dnsutils terraform vault bind9-dnsutils trash-cli
+        dnsutils vault bind9-dnsutils trash-cli
     )
     
     for package in "${DEPENDENCIES[@]}"; do
@@ -175,6 +175,12 @@ install_tfenv() {
         git clone --depth=1 https://github.com/tfutils/tfenv.git ~/.tfenv
         mkdir -p ~/.local/bin
         ln -sf ~/.tfenv/bin/* ~/.local/bin/
+    fi
+    # Install latest Terraform using tfenv
+    if ! command -v terraform >/dev/null; then
+        log "Installing latest Terraform..."
+        ~/.tfenv/bin/tfenv install latest
+        ~/.tfenv/bin/tfenv use latest
     fi
 }
 
