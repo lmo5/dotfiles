@@ -672,7 +672,7 @@ main() {
     # install_font
     setup_shell_environment
     install_additional_tools
-    install_lazygit  # Added lazygit installation
+    # install_lazygit  # Added lazygit installation
     install_optional_tools
     backup_configs
     setup_dotfiles
