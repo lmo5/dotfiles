@@ -84,7 +84,7 @@ install_dependencies() {
         bash bash-completion tar bat tree multitail fastfetch
         wget unzip fontconfig neovim zsh stow curl git
         kubectl apt-transport-https ca-certificates direnv tmux htop
-        dnsutils vault bind9-dnsutils trash-cli
+        dnsutils bind9-dnsutils trash-cli
     )
     
     for package in "${DEPENDENCIES[@]}"; do
