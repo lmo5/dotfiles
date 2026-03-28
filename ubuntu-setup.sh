@@ -657,7 +657,7 @@ main() {
 #     setup_direnv
 #     install_kubernetes_tools
 #     install_krew
-    install_kubie
+    # install_kubie
     install_devbox
     install_stern
     install_tfenv
