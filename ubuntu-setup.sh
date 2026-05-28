@@ -573,16 +573,95 @@ EOL
     fi
 }
 
+install_gh() {
+    if command -v gh &>/dev/null; then
+        log "gh is already installed."
+        return
+    fi
+    log "Installing GitHub CLI (gh)..."
+    sudo mkdir -p -m 755 /etc/apt/keyrings
+    wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+    sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    sudo apt-get update -qq
+    install_package "gh"
+    success "gh installed. Run 'gh auth login' to authenticate."
+}
+
+install_docker() {
+    if command -v docker &>/dev/null; then
+        log "Docker is already installed."
+        return
+    fi
+    log "Installing Docker CE..."
+    sudo apt-get remove -y docker docker-engine docker.io containerd runc 2>/dev/null || true
+    sudo install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    sudo chmod a+r /etc/apt/keyrings/docker.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    sudo apt-get update -qq
+    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    sudo usermod -aG docker "$USER"
+    success "Docker installed. Log out and back in to use Docker without sudo."
+}
+
+install_vault() {
+    if command -v vault &>/dev/null; then
+        log "vault is already installed."
+        return
+    fi
+    log "Installing HashiCorp Vault..."
+    sudo mkdir -p /etc/apt/keyrings
+    if [ ! -f /etc/apt/keyrings/hashicorp-archive-keyring.gpg ]; then
+        wget -qO- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/hashicorp-archive-keyring.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list > /dev/null
+        sudo apt-get update -qq
+    fi
+    install_package "vault"
+    success "vault installed successfully."
+}
+
+install_jq() {
+    if command -v jq &>/dev/null; then
+        log "jq is already installed."
+        return
+    fi
+    log "Installing jq..."
+    install_package "jq"
+    success "jq installed successfully."
+}
+
+install_claude() {
+    if command -v claude &>/dev/null; then
+        log "Claude Code is already installed."
+        return
+    fi
+    log "Installing Claude Code..."
+    if ! command -v node &>/dev/null; then
+        log "Installing Node.js LTS..."
+        curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - 2>/dev/null
+        sudo apt-get install -y nodejs
+    fi
+    sudo npm install -g @anthropic-ai/claude-code
+    if command -v claude &>/dev/null; then
+        success "Claude Code installed."
+        log "Run 'claude' to authenticate. Plugins (superpowers, clangd-lsp, code-review) will auto-install on first run."
+    else
+        error "Failed to install Claude Code."
+    fi
+}
+
 backup_configs() {
     log "Backing up existing configurations..."
     local backup_dir="$HOME/.config_backup"
     mkdir -p "$backup_dir/.config"
-    
+
     local -a configs=(
         ".zshrc" ".p10k.zsh" ".config/starship.toml"
         ".config/fastfetch/config.jsonc" ".config/bat/config"
         ".bashrc" ".bash_logout" ".bash_profile" ".profile"
-        ".config/lazygit/config.yml" ".gitconfig"  # Added lazygit config and gitconfig to backup list
+        ".config/lazygit/config.yml" ".gitconfig"
+        ".claude/settings.json" ".claude/statusline-command.sh" ".claude/statusline.sh"
     )
     
     for config in "${configs[@]}"; do
@@ -602,7 +681,7 @@ setup_dotfiles() {
     mkdir -p localbin
     
     local -a STOW_PACKAGES=(
-        "zsh" "bash" "shell" "starship" "bat" "localbin" "git" "tmux" "lazygit" "ghorg"
+        "zsh" "bash" "shell" "starship" "bat" "localbin" "git" "tmux" "lazygit" "ghorg" "claude"
     )
     
     for package in "${STOW_PACKAGES[@]}"; do
@@ -666,7 +745,7 @@ install_ghorg() {
 }
 
 main() {
-     check_requirements
+    check_requirements
 #     setup_locales
 #     setup_repositories
 #     install_dependencies
@@ -675,6 +754,10 @@ main() {
 #     install_kubernetes_tools
 #     install_krew
     # install_kubie
+    install_jq
+    install_gh
+    install_docker
+    install_vault
     install_devbox
     install_stern
     install_tfenv
@@ -682,7 +765,8 @@ main() {
     # install_font
     setup_shell_environment
     install_additional_tools
-    # install_lazygit  # Added lazygit installation
+    install_claude
+    # install_lazygit
     install_optional_tools
     backup_configs
     setup_dotfiles

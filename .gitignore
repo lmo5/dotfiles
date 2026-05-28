@@ -1,1 +1,22 @@
 shell/.shell/.exports
+
+# Claude — never commit credentials or session data
+claude/.claude/.credentials.json
+claude/.claude/history.jsonl
+claude/.claude/backups/
+claude/.claude/cache/
+claude/.claude/file-history/
+claude/.claude/ide/
+claude/.claude/mcp-needs-auth-cache.json
+claude/.claude/paste-cache/
+claude/.claude/plans/
+claude/.claude/plugins/cache/
+claude/.claude/plugins/data/
+claude/.claude/plugins/installed_plugins.json
+claude/.claude/plugins/marketplaces/
+claude/.claude/projects/
+claude/.claude/session-env/
+claude/.claude/sessions/
+claude/.claude/shell-snapshots/
+claude/.claude/stats-cache.json
+claude/.claude/.last-cleanup
