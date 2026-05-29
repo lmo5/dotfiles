@@ -694,6 +694,12 @@ setup_dotfiles() {
             log "Warning: Package directory $package not found, skipping..."
         fi
     done
+
+    # Put repo-sync on PATH
+    mkdir -p "$HOME/.local/bin"
+    ln -sf "$HOME/dotfiles/scripts/repo-sync" "$HOME/.local/bin/repo-sync"
+    chmod +x "$HOME/dotfiles/scripts/repo-sync"
+    log "repo-sync linked to ~/.local/bin/repo-sync"
 }
 
 
@@ -706,6 +712,45 @@ configure_shell_preference() {
     else
         success "Keeping current shell as default."
     fi
+}
+
+install_ghq() {
+    if command -v ghq &>/dev/null; then
+        log "ghq is already installed."
+        return
+    fi
+    log "Installing ghq..."
+    local GHQ_VERSION temp_dir
+    GHQ_VERSION=$(curl -s https://api.github.com/repos/x-motemen/ghq/releases/latest | grep 'tag_name' | cut -d '"' -f 4)
+    temp_dir=$(mktemp -d)
+    curl -sL "https://github.com/x-motemen/ghq/releases/download/${GHQ_VERSION}/ghq_linux_amd64.zip" \
+        -o "$temp_dir/ghq.zip"
+    unzip -q "$temp_dir/ghq.zip" -d "$temp_dir"
+    sudo mv "$temp_dir/ghq_linux_amd64/ghq" /usr/local/bin/ghq
+    sudo chmod +x /usr/local/bin/ghq
+    rm -rf "$temp_dir"
+    success "ghq installed. Repos will live at ~/repos/<host>/<owner>/<repo> (ghq.root set in gitconfig)."
+}
+
+install_syncthing() {
+    if command -v syncthing &>/dev/null; then
+        log "syncthing is already installed."
+        return
+    fi
+    log "Installing Syncthing..."
+    sudo mkdir -p /etc/apt/keyrings
+    if [ ! -f /etc/apt/keyrings/syncthing-archive-keyring.gpg ]; then
+        curl -s https://syncthing.net/release-key.gpg \
+            | sudo gpg --dearmor -o /etc/apt/keyrings/syncthing-archive-keyring.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/syncthing-archive-keyring.gpg] https://apt.syncthing.net/ syncthing stable" \
+            | sudo tee /etc/apt/sources.list.d/syncthing.list > /dev/null
+        sudo apt-get update -qq
+    fi
+    install_package "syncthing"
+    # Enable user service; may be a no-op if there is no active user session
+    systemctl --user enable --now syncthing 2>/dev/null \
+        || log "  Note: run 'systemctl --user enable --now syncthing' after your next login."
+    success "Syncthing installed. Web UI at http://127.0.0.1:8384 once the service starts."
 }
 
 install_ghorg() {
@@ -766,6 +811,8 @@ main() {
     setup_shell_environment
     install_additional_tools
     install_claude
+    install_ghq
+    install_syncthing
     # install_lazygit
     install_optional_tools
     backup_configs

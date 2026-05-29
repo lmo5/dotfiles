@@ -487,6 +487,48 @@ install_kubernetes_tools() {
     command_exists k9s || { log "Installing k9s..."; curl -sS https://webinstall.dev/k9s | bash; }
 }
 
+install_ghq() {
+    command_exists ghq && { log "ghq is already installed."; return; }
+    log "Installing ghq..."
+    local GHQ_VERSION temp_dir
+    GHQ_VERSION=$(curl -s https://api.github.com/repos/x-motemen/ghq/releases/latest | grep 'tag_name' | cut -d '"' -f 4)
+    temp_dir=$(mktemp -d)
+    curl -sL "https://github.com/x-motemen/ghq/releases/download/${GHQ_VERSION}/ghq_linux_amd64.zip" \
+        -o "$temp_dir/ghq.zip"
+    unzip -q "$temp_dir/ghq.zip" -d "$temp_dir"
+    ${SUDO_CMD} mv "$temp_dir/ghq_linux_amd64/ghq" /usr/local/bin/ghq
+    ${SUDO_CMD} chmod +x /usr/local/bin/ghq
+    rm -rf "$temp_dir"
+    success "ghq installed. Repos live at ~/repos/<host>/<owner>/<repo> (ghq.root set in gitconfig)."
+}
+
+install_syncthing() {
+    command_exists syncthing && { log "syncthing is already installed."; return; }
+    log "Installing Syncthing..."
+    case "$PACKAGER" in
+        nala|apt)
+            if [ ! -f /etc/apt/keyrings/syncthing-archive-keyring.gpg ]; then
+                curl -s https://syncthing.net/release-key.gpg \
+                    | ${SUDO_CMD} gpg --dearmor -o /etc/apt/keyrings/syncthing-archive-keyring.gpg
+                echo "deb [signed-by=/etc/apt/keyrings/syncthing-archive-keyring.gpg] \
+https://apt.syncthing.net/ syncthing stable" \
+                    | ${SUDO_CMD} tee /etc/apt/sources.list.d/syncthing.list > /dev/null
+                ${SUDO_CMD} apt-get update -qq
+            fi
+            pkg_install syncthing
+            ;;
+        zypper)   pkg_install syncthing ;;
+        dnf|yum)  pkg_install syncthing ;;
+        pacman)   ${AUR_HELPER} --noconfirm -S syncthing ;;
+        nix-env)  ${SUDO_CMD} ${PACKAGER} -iA nixos.syncthing ;;
+        *)        pkg_install syncthing ;;
+    esac
+    # Enable user service; may be a no-op if not in a user session
+    systemctl --user enable --now syncthing 2>/dev/null \
+        || log "  Note: could not enable syncthing user service — run 'systemctl --user enable --now syncthing' after login."
+    success "Syncthing installed. Web UI: http://127.0.0.1:8384"
+}
+
 install_difftastic() {
     command_exists difft && { log "difftastic is already installed."; return; }
     log "Installing difftastic..."
@@ -623,6 +665,12 @@ setup_dotfiles() {
             log "Warning: package directory '$pkg' not found, skipping."
         fi
     done
+
+    # Put repo-sync on PATH
+    mkdir -p "$HOME/.local/bin"
+    ln -sf "$dotfiles_dir/scripts/repo-sync" "$HOME/.local/bin/repo-sync"
+    chmod +x "$dotfiles_dir/scripts/repo-sync"
+    log "repo-sync linked to ~/.local/bin/repo-sync"
 }
 
 configure_shell_preference() {
@@ -655,6 +703,8 @@ main() {
     install_additional_tools
     install_lazygit
     install_claude
+    install_ghq
+    install_syncthing
     install_kubernetes_tools
     setup_direnv
     install_optional_tools

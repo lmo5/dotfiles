@@ -83,5 +83,7 @@
   autoStash = true
   updateRefs = true
 [credential "https://gitlab.com"]
-	helper = 
+	helper =
 	helper = !/usr/bin/glab auth git-credential
+[ghq]
+    root = ~/repos

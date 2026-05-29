@@ -1,0 +1,16 @@
+// Syncthing ignore template for code repositories
+// Apply with: cp stignore.template <repo>/.stignore
+// IMPORTANT: .git is intentionally NOT listed — Syncthing must sync it
+//            so the full repo state (branches, stashes, index) moves between laptops.
+
+// Dependency caches / build artefacts — regenerable, often huge
+node_modules
+target
+dist
+build
+.venv
+__pycache__
+.next
+
+// Log files
+*.log

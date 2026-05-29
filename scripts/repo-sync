@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+# repo-sync: register/unregister repos as Syncthing shared folders via REST API
+set -euo pipefail
+
+SYNCTHING_API="${STSYNC_URL:-http://127.0.0.1:8384}"
+GHQ_ROOT="${GHQ_ROOT:-$HOME/repos}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+STIGNORE_TEMPLATE="${STIGNORE_TEMPLATE:-$SCRIPT_DIR/../syncthing/stignore.template}"
+
+# ---------------------------------------------------------------------------
+# Config helpers
+# ---------------------------------------------------------------------------
+
+_get_api_key() {
+    if [[ -n "${STSYNC_APIKEY:-}" ]]; then
+        printf '%s' "$STSYNC_APIKEY"
+        return
+    fi
+    local cfg="$HOME/.local/state/syncthing/config.xml"
+    if [[ ! -f "$cfg" ]]; then
+        printf 'Error: Syncthing config not found at %s\n' "$cfg" >&2
+        printf '  Set STSYNC_APIKEY=<key> or run Syncthing once so it creates %s\n' "$cfg" >&2
+        return 1
+    fi
+    local key
+    key=$(sed -n 's|.*<apikey>\([^<]*\)</apikey>.*|\1|p' "$cfg")
+    if [[ -z "$key" ]]; then
+        printf 'Error: Could not parse <apikey> from %s\n' "$cfg" >&2
+        return 1
+    fi
+    printf '%s' "$key"
+}
+
+_get_server_device_id() {
+    if [[ -n "${STSYNC_SERVER_DEVICE_ID:-}" ]]; then
+        printf '%s' "$STSYNC_SERVER_DEVICE_ID"
+        return
+    fi
+    # shellcheck disable=SC2016
+    printf 'Error: $STSYNC_SERVER_DEVICE_ID is not set.\n' >&2
+    printf '  Set it to the Syncthing device ID of your hub server.\n' >&2
+    printf '  Find it in the Syncthing web UI: Actions > Show ID.\n' >&2
+    return 1
+}
+
+# Derive a Syncthing folder ID from an absolute repo path.
+# Strips GHQ_ROOT prefix and replaces slashes with hyphens.
+# e.g. ~/repos/github.com/lmo5/dotfiles -> github.com-lmo5-dotfiles
+_path_to_folder_id() {
+    local path="$1"
+    local rel="${path#"$GHQ_ROOT/"}"
+    # If path was not under GHQ_ROOT, strip leading slash to avoid leading hyphen
+    rel="${rel#/}"
+    printf '%s' "${rel//\//-}"
+}
+
+# ---------------------------------------------------------------------------
+# Subcommands
+# ---------------------------------------------------------------------------
+
+cmd_add() {
+    local repo_path="${1:-}"
+    if [[ -z "$repo_path" ]]; then
+        printf 'Usage: repo-sync add <repo-path>\n' >&2
+        return 1
+    fi
+
+    local abs_path
+    abs_path="$(realpath -m "$repo_path")"
+    if [[ ! -d "$abs_path" ]]; then
+        printf 'Error: Directory not found: %s\n' "$abs_path" >&2
+        return 1
+    fi
+
+    local api_key server_device_id folder_id
+    api_key="$(_get_api_key)"
+    server_device_id="$(_get_server_device_id)"
+    folder_id="$(_path_to_folder_id "$abs_path")"
+
+    printf 'Registering "%s" as Syncthing folder "%s"...\n' "$abs_path" "$folder_id"
+
+    # Apply .stignore template so build artefacts are excluded from day one
+    local template
+    template="$(realpath -m "$STIGNORE_TEMPLATE")"
+    if [[ -f "$template" ]]; then
+        cp "$template" "$abs_path/.stignore"
+        printf '  Applied .stignore from %s\n' "$template"
+    else
+        printf '  Warning: stignore template not found at %s — skipping\n' "$template" >&2
+    fi
+
+    # POST the folder config to the local Syncthing instance
+    local payload http_code
+    payload='{"id":"'"$folder_id"'","label":"'"$folder_id"'","path":"'"$abs_path"'","type":"sendreceive","devices":[{"deviceID":"'"$server_device_id"'","introducedBy":""}],"rescanIntervalS":3600,"fsWatcherEnabled":true,"fsWatcherDelayS":10,"ignorePerms":false,"autoNormalize":true}'
+
+    http_code=$(curl -s -o /dev/null -w '%{http_code}' \
+        -X POST \
+        -H "X-API-Key: $api_key" \
+        -H "Content-Type: application/json" \
+        -d "$payload" \
+        "$SYNCTHING_API/rest/config/folders")
+
+    if [[ "$http_code" == "200" ]]; then
+        printf '  Done. Syncthing will begin syncing "%s" with the server.\n' "$folder_id"
+        printf '  Accept the folder on other devices or wait for Introducer propagation.\n'
+    else
+        printf 'Error: Syncthing API returned HTTP %s\n' "$http_code" >&2
+        printf '  Is Syncthing running? Is the API key correct?\n' >&2
+        return 1
+    fi
+}
+
+cmd_list() {
+    local api_key
+    api_key="$(_get_api_key)"
+
+    local response
+    response=$(curl -s \
+        -H "X-API-Key: $api_key" \
+        "$SYNCTHING_API/rest/config/folders")
+
+    if command -v jq >/dev/null 2>&1; then
+        printf '%s\n' "$response" \
+            | jq -r '.[] | "\(.id)\t\(.path)"' 2>/dev/null \
+            || printf '(no folders configured or unexpected response)\n'
+    else
+        # Fallback: extract IDs with sed
+        printf '%s\n' "$response" \
+            | sed -n 's/.*"id":"\([^"]*\)".*/\1/p' \
+            || printf '(no folders configured)\n'
+    fi
+}
+
+cmd_rm() {
+    local repo_path="${1:-}"
+    if [[ -z "$repo_path" ]]; then
+        printf 'Usage: repo-sync rm <repo-path>\n' >&2
+        return 1
+    fi
+
+    local abs_path folder_id api_key
+    abs_path="$(realpath -m "$repo_path")"
+    folder_id="$(_path_to_folder_id "$abs_path")"
+    api_key="$(_get_api_key)"
+
+    printf 'Removing Syncthing folder "%s"...\n' "$folder_id"
+
+    local http_code
+    http_code=$(curl -s -o /dev/null -w '%{http_code}' \
+        -X DELETE \
+        -H "X-API-Key: $api_key" \
+        "$SYNCTHING_API/rest/config/folders/$folder_id")
+
+    if [[ "$http_code" == "200" ]]; then
+        printf '  Folder "%s" removed. Local files are unchanged.\n' "$folder_id"
+    else
+        printf 'Error: Syncthing API returned HTTP %s\n' "$http_code" >&2
+        printf '  The folder may not exist or the API key may be wrong.\n' >&2
+        return 1
+    fi
+}
+
+_usage() {
+    cat <<'EOF'
+repo-sync — Register/unregister repos as Syncthing shared folders
+
+Usage:
+  repo-sync add <repo-path>   Register a repo with the hub server
+  repo-sync list              List all synced folders (id + path)
+  repo-sync rm  <repo-path>   Remove a folder from Syncthing
+  repo-sync --help            Show this help
+
+Environment variables (all optional except STSYNC_SERVER_DEVICE_ID):
+  STSYNC_APIKEY           API key — overrides ~/.local/state/syncthing/config.xml
+  STSYNC_SERVER_DEVICE_ID Device ID of the hub server  (required; never hardcoded)
+  STSYNC_URL              Syncthing API base URL  [default: http://127.0.0.1:8384]
+  GHQ_ROOT                Root of the ghq tree    [default: ~/repos]
+  STIGNORE_TEMPLATE       Path to .stignore template
+
+The API key is read from STSYNC_APIKEY, or parsed from
+~/.local/state/syncthing/config.xml (created automatically when Syncthing
+runs for the first time).
+
+STSYNC_SERVER_DEVICE_ID must be set to the hub server's device ID.
+Find it in the Syncthing web UI: Actions > Show ID.
+EOF
+}
+
+# ---------------------------------------------------------------------------
+# Dispatch
+# ---------------------------------------------------------------------------
+
+case "${1:-}" in
+    add)             shift; cmd_add  "$@" ;;
+    list)                   cmd_list      ;;
+    rm)              shift; cmd_rm   "$@" ;;
+    --help|-h|help)         _usage        ;;
+    "")                     _usage; exit 1 ;;
+    *) printf 'Unknown subcommand: %s\n\n' "$1" >&2; _usage >&2; exit 1 ;;
+esac
