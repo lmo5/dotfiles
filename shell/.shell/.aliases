@@ -265,3 +265,6 @@ alias kdesc='kubectl describe'
 
 # Helm list all
 alias hla='helm ls -A'
+
+# Sync private data to NAS (resumable, no delete, no compression for LAN speed)
+alias sync-private='rsync -rlD --no-compress --partial --info=progress2 --stats /media/ayoub/data/private/ /mnt/nas-private/'
