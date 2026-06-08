@@ -1,20 +1,46 @@
 #!/bin/bash
-set -eo pipefail
+# Personal dotfiles installer — safe to run via:
+#   curl -fsSL https://raw.githubusercontent.com/lmo5/dotfiles/master/setup.sh | bash
+#
+# set -e is intentionally NOT used: this is a long installer and a single failing
+# optional tool must not abort the whole run. Critical steps fail loudly via error().
+set -uo pipefail
 
 # Colors for output
 declare -r RC='\033[0m'
 declare -r RED='\033[31m'
 declare -r YELLOW='\033[33m'
 declare -r GREEN='\033[32m'
+declare -r BLUE='\033[34m'
+declare -r BOLD='\033[1m'
 
-# Error handling
-trap 'echo -e "${RED}Error: Command failed at line $LINENO${RC}"; exit 1' ERR
+# Where the dotfiles repo lives / will be cloned to (override with DOTFILES_DIR env)
+REPO_URL="https://github.com/lmo5/dotfiles.git"
+CLONE_DIR="${DOTFILES_DIR:-$HOME/.dotfiles}"
 
-# Global package manager variables (set by checkEnv)
+# Global package manager variables (set by detect_packager)
 PACKAGER=""
 SUDO_CMD=""
 SUGROUP=""
 AUR_HELPER=""
+
+# Behavior flags (set by parse_args / env)
+DOTFILES_DIR="${DOTFILES_DIR:-}"
+DOTFILES_YES="${DOTFILES_YES:-}"
+DOTFILES_MINIMAL="${DOTFILES_MINIMAL:-}"
+DO_ROLLBACK=""
+NO_CLONE=""
+
+# Step tracking for the progress UX / final summary
+STEP=0
+TOTAL=0
+STEPS_OK=()
+STEPS_FAILED=()
+STEPS_SKIPPED=()
+
+# Backup destination for this run (set by backup_configs)
+BACKUP_ROOT="$HOME/.dotfiles-backups"
+BACKUP_DIR=""
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -25,6 +51,10 @@ error()   { log "$1" "$RED" >&2; exit 1; }
 success() { log "$1" "$GREEN"; }
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
+
+# True only if /dev/tty can actually be opened for reading (works under curl|bash
+# where stdin is the pipe, but false in cron / no controlling terminal).
+has_tty() { (exec < /dev/tty) 2>/dev/null; }
 
 # Install a single package using the detected package manager
 pkg_install() {
@@ -46,17 +76,14 @@ pkg_install() {
 # Environment check
 # ---------------------------------------------------------------------------
 
-checkEnv() {
-    log "Checking environment..."
-
-    for req in curl groups sudo; do
-        command_exists "$req" || error "Required tool not found: $req"
-    done
+# Detect package manager + privilege escalation command. Safe to call standalone
+# (used by both bootstrap's ensure_git and checkEnv).
+detect_packager() {
+    [ -n "$PACKAGER" ] && return 0
 
     for pgm in nala apt dnf yum pacman zypper emerge xbps-install nix-env; do
         if command_exists "$pgm"; then
             PACKAGER="$pgm"
-            log "Package manager: $pgm"
             break
         fi
     done
@@ -69,6 +96,34 @@ checkEnv() {
     else
         SUDO_CMD="su -c"
     fi
+
+    # Resolve an AUR helper name for Arch (full bootstrap handled in checkEnv)
+    if [ "$PACKAGER" = "pacman" ]; then
+        command_exists yay && AUR_HELPER="yay"
+        command_exists paru && AUR_HELPER="paru"
+    fi
+}
+
+# Ensure git is available before we try to clone the repo (curl|bash path).
+ensure_git() {
+    command_exists git && return 0
+    log "git not found — installing it first..."
+    detect_packager
+    [ "$PACKAGER" = "pacman" ] && [ -z "$AUR_HELPER" ] \
+        && ${SUDO_CMD} pacman --noconfirm -S git \
+        || pkg_install git
+    command_exists git || error "Failed to install git, which is required to clone the dotfiles."
+}
+
+checkEnv() {
+    log "Checking environment..."
+
+    for req in curl groups sudo; do
+        command_exists "$req" || error "Required tool not found: $req"
+    done
+
+    detect_packager
+    log "Package manager: $PACKAGER"
     log "Privilege escalation: $SUDO_CMD"
 
     for sug in wheel sudo root; do
@@ -88,7 +143,7 @@ checkEnv() {
             cd /opt && ${SUDO_CMD} git clone https://aur.archlinux.org/yay-git.git
             ${SUDO_CMD} chown -R "${USER}:${USER}" /opt/yay-git
             cd /opt/yay-git && makepkg --noconfirm -si
-            cd -
+            cd - || true
         fi
         command_exists yay && AUR_HELPER="yay" || AUR_HELPER="paru"
     fi
@@ -544,13 +599,13 @@ install_difftastic() {
 }
 
 install_optional_tools() {
-    local install_terragrunt install_gum install_glab install_ghorg_opt install_difftastic_opt
+    local install_terragrunt=n install_gum=n install_glab=n
 
-    read -p "Would you like to install Terragrunt? (y/n) " install_terragrunt
-    read -p "Would you like to install Gum? (y/n) " install_gum
-    read -p "Would you like to install glab (GitLab CLI)? (y/n) " install_glab
-    read -p "Would you like to install ghorg? (y/n) " install_ghorg_opt
-    read -p "Would you like to install difftastic? (y/n) " install_difftastic_opt
+    prompt_yn "Install Terragrunt?"      n && install_terragrunt=y
+    prompt_yn "Install Gum?"             n && install_gum=y
+    prompt_yn "Install glab (GitLab CLI)?" n && install_glab=y
+    prompt_yn "Install ghorg?"           n && install_ghorg
+    prompt_yn "Install difftastic?"      n && install_difftastic
 
     if [[ $install_terragrunt =~ ^[Yy]$ ]]; then
         log "Installing Terragrunt..."
@@ -606,9 +661,6 @@ install_optional_tools() {
         esac
         success "glab installed."
     fi
-
-    [[ $install_ghorg_opt =~ ^[Yy]$ ]]       && install_ghorg
-    [[ $install_difftastic_opt =~ ^[Yy]$ ]]  && install_difftastic
 }
 
 # ---------------------------------------------------------------------------
@@ -626,56 +678,149 @@ setup_direnv() {
     done
 }
 
-backup_configs() {
-    log "Backing up existing configurations..."
-    local backup_dir="$HOME/.config_backup"
-    mkdir -p "$backup_dir/.config"
-
-    local configs=(
-        ".zshrc" ".p10k.zsh" ".config/starship.toml"
-        ".config/fastfetch/config.jsonc" ".config/bat/config"
-        ".bashrc" ".bash_logout" ".bash_profile" ".profile"
-        ".config/lazygit/config.yml" ".gitconfig"
+# Configs managed by the stow packages — kept in one place so backup and
+# rollback agree on exactly what is touched.
+managed_configs() {
+    printf '%s\n' \
+        ".zshrc" ".p10k.zsh" ".config/starship.toml" \
+        ".config/fastfetch/config.jsonc" ".config/bat/config" \
+        ".bashrc" ".bash_logout" ".bash_profile" ".profile" \
+        ".config/lazygit/config.yml" ".gitconfig" \
         ".claude/settings.json" ".claude/statusline-command.sh" ".claude/statusline.sh"
-    )
+}
 
-    for config in "${configs[@]}"; do
-        if [ -f "$HOME/$config" ]; then
-            log "Backing up $config..."
-            mkdir -p "$(dirname "$backup_dir/$config")"
-            mv "$HOME/$config" "$backup_dir/$config"
+# Stow packages applied by setup_dotfiles — recorded in the backup manifest so
+# rollback knows what to unstow.
+stow_packages() {
+    printf '%s\n' zsh bash shell starship bat localbin git tmux lazygit ghorg claude
+}
+
+backup_configs() {
+    BACKUP_DIR="$BACKUP_ROOT/$(date -u +%Y%m%dT%H%M%SZ)"
+    log "Backing up existing configurations to $BACKUP_DIR ..."
+    mkdir -p "$BACKUP_DIR" || error "Could not create backup directory $BACKUP_DIR"
+
+    local config backed_up=0
+    : > "$BACKUP_DIR/manifest.txt"
+    {
+        echo "# dotfiles backup manifest"
+        echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "dotfiles_dir=$DOTFILES_DIR"
+        echo "[packages]"
+        stow_packages
+        echo "[files]"
+    } >> "$BACKUP_DIR/manifest.txt"
+
+    while IFS= read -r config; do
+        # Only back up REAL files — skip symlinks that already point into the repo.
+        if [ -f "$HOME/$config" ] && [ ! -L "$HOME/$config" ]; then
+            mkdir -p "$(dirname "$BACKUP_DIR/$config")"
+            cp -a "$HOME/$config" "$BACKUP_DIR/$config"
+            echo "$config" >> "$BACKUP_DIR/manifest.txt"
+            backed_up=$((backed_up + 1))
         fi
-    done
+    done < <(managed_configs)
+
+    success "Backed up $backed_up existing config file(s). Roll back with: setup.sh --rollback"
+}
+
+# ---------------------------------------------------------------------------
+# Rollback
+# ---------------------------------------------------------------------------
+
+rollback_mode() {
+    [ -d "$BACKUP_ROOT" ] || error "No backups found at $BACKUP_ROOT"
+    local backups=()
+    local d
+    while IFS= read -r d; do backups+=("$d"); done \
+        < <(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d | sort -r)
+    [ "${#backups[@]}" -eq 0 ] && error "No backups found at $BACKUP_ROOT"
+
+    local chosen="${backups[0]}"
+    if [ -z "$DOTFILES_YES" ] && has_tty; then
+        log "Available backups (newest first):" "$BOLD"
+        local i
+        for i in "${!backups[@]}"; do
+            printf '  %2d) %s\n' "$((i + 1))" "$(basename "${backups[$i]}")"
+        done
+        local sel
+        read -r -p "Select a backup to restore [1]: " sel < /dev/tty
+        sel="${sel:-1}"
+        if [[ "$sel" =~ ^[0-9]+$ ]] && [ "$sel" -ge 1 ] && [ "$sel" -le "${#backups[@]}" ]; then
+            chosen="${backups[$((sel - 1))]}"
+        else
+            error "Invalid selection: $sel"
+        fi
+    fi
+
+    local manifest="$chosen/manifest.txt"
+    [ -f "$manifest" ] || error "Backup is missing manifest.txt: $chosen"
+    log "Rolling back from $(basename "$chosen") ..." "$BLUE"
+
+    # Resolve the repo dir so we can unstow from it.
+    DOTFILES_DIR="$(grep -m1 '^dotfiles_dir=' "$manifest" | cut -d= -f2-)"
+    [ -d "$DOTFILES_DIR" ] || DOTFILES_DIR="$CLONE_DIR"
+
+    # 1) Unstow the packages that were applied.
+    if [ -d "$DOTFILES_DIR" ] && command_exists stow; then
+        local pkg in_pkgs=0
+        while IFS= read -r pkg; do
+            case "$pkg" in
+                "[packages]") in_pkgs=1; continue ;;
+                "[files]")    break ;;
+            esac
+            [ "$in_pkgs" = 1 ] && [ -d "$DOTFILES_DIR/$pkg" ] \
+                && (cd "$DOTFILES_DIR" && stow -D -v -t "$HOME" "$pkg" 2>/dev/null) \
+                && log "  unstowed $pkg"
+        done < "$manifest"
+    fi
+
+    # 2) Restore the saved files.
+    local f in_files=0 restored=0
+    while IFS= read -r f; do
+        case "$f" in
+            "[files]") in_files=1; continue ;;
+        esac
+        [ "$in_files" = 1 ] || continue
+        [[ "$f" == \#* || -z "$f" ]] && continue
+        if [ -f "$chosen/$f" ]; then
+            mkdir -p "$(dirname "$HOME/$f")"
+            cp -a "$chosen/$f" "$HOME/$f"
+            restored=$((restored + 1))
+            log "  restored $f"
+        fi
+    done < "$manifest"
+
+    success "Rollback complete: restored $restored file(s) from $(basename "$chosen")."
 }
 
 setup_dotfiles() {
     log "Setting up dotfiles via stow..."
-    # Resolve the directory that contains this script
-    local dotfiles_dir
-    dotfiles_dir="$(cd "$(dirname "$0")" && pwd)"
-    cd "$dotfiles_dir"
+    [ -d "$DOTFILES_DIR" ] || error "Dotfiles directory not found: $DOTFILES_DIR"
+    cd "$DOTFILES_DIR" || error "Could not enter $DOTFILES_DIR"
     mkdir -p localbin
 
-    local packages=(zsh bash shell starship bat localbin git tmux lazygit ghorg claude)
-    for pkg in "${packages[@]}"; do
+    local pkg
+    while IFS= read -r pkg; do
         if [ -d "$pkg" ]; then
             log "Stowing $pkg..."
             stow --no-folding -v -R -t "$HOME" "$pkg" || error "Failed to stow $pkg"
         else
             log "Warning: package directory '$pkg' not found, skipping."
         fi
-    done
+    done < <(stow_packages)
 
     # Put repo-sync on PATH
-    mkdir -p "$HOME/.local/bin"
-    ln -sf "$dotfiles_dir/scripts/repo-sync" "$HOME/.local/bin/repo-sync"
-    chmod +x "$dotfiles_dir/scripts/repo-sync"
-    log "repo-sync linked to ~/.local/bin/repo-sync"
+    if [ -f "$DOTFILES_DIR/scripts/repo-sync" ]; then
+        mkdir -p "$HOME/.local/bin"
+        chmod +x "$DOTFILES_DIR/scripts/repo-sync"
+        ln -sf "$DOTFILES_DIR/scripts/repo-sync" "$HOME/.local/bin/repo-sync"
+        log "repo-sync linked to ~/.local/bin/repo-sync"
+    fi
 }
 
 configure_shell_preference() {
-    read -p "Would you like to use zsh as your default shell? (y/n) " use_zsh
-    if [[ $use_zsh =~ ^[Yy]$ ]] && [ "$SHELL" != "$(command -v zsh)" ]; then
+    if prompt_yn "Use zsh as your default shell?" y && [ "$SHELL" != "$(command -v zsh)" ]; then
         chsh -s "$(command -v zsh)"
         success "Log out and back in to use zsh. Then run 'p10k configure' to set up the theme."
     else
@@ -684,34 +829,182 @@ configure_shell_preference() {
 }
 
 # ---------------------------------------------------------------------------
+# CLI / interactivity plumbing
+# ---------------------------------------------------------------------------
+
+usage() {
+    cat <<EOF
+dotfiles setup
+
+Usage:
+  curl -fsSL ${REPO_URL%.git}/raw/master/setup.sh | bash
+  ./setup.sh [options]
+
+Options:
+  -y, --yes        Assume "yes" to every optional prompt (non-interactive install).
+      --minimal    Base dependencies + dotfiles only; skip optional/heavy tools.
+      --rollback   Restore configs from a previous backup and unstow packages.
+      --no-clone   Use the current directory as the repo (skip clone/re-exec).
+  -h, --help       Show this help and exit.
+
+Environment:
+  DOTFILES_DIR=<path>   Repo location to clone to / use (default: ~/.dotfiles).
+  DOTFILES_YES=1        Same as --yes.
+  DOTFILES_MINIMAL=1    Same as --minimal.
+EOF
+}
+
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -y|--yes)    DOTFILES_YES=1 ;;
+            --minimal)   DOTFILES_MINIMAL=1 ;;
+            --rollback)  DO_ROLLBACK=1 ;;
+            --no-clone)  NO_CLONE=1 ;;
+            -h|--help)   usage; exit 0 ;;
+            *)           usage; error "Unknown option: $1" ;;
+        esac
+        shift
+    done
+}
+
+# Ask a yes/no question. Honors --yes / --minimal / no-TTY defaults.
+# Usage: prompt_yn "Question?" [default y|n]   -> returns 0 (yes) / 1 (no)
+prompt_yn() {
+    local question="$1" default="${2:-n}"
+    [ -n "$DOTFILES_YES" ] && return 0
+    # In minimal mode, optional tools default to "no" unless the default is yes.
+    if [ -n "$DOTFILES_MINIMAL" ]; then
+        [ "$default" = "y" ] && return 0 || return 1
+    fi
+    if has_tty; then
+        local hint="[y/N]"; [ "$default" = "y" ] && hint="[Y/n]"
+        local ans
+        read -r -p "$(echo -e "${YELLOW}${question} ${hint} ${RC}")" ans < /dev/tty
+        ans="${ans:-$default}"
+        [[ "$ans" =~ ^[Yy]$ ]]
+    else
+        log "  (no TTY) defaulting '$question' to '$default'"
+        [ "$default" = "y" ]
+    fi
+}
+
+# Run a named install phase as a numbered, non-fatal step.
+# Usage: run_step "Label" function_name [args...]
+run_step() {
+    local label="$1"; shift
+    STEP=$((STEP + 1))
+    log "[ $STEP/$TOTAL ] $label" "$BLUE"
+    if "$@"; then
+        STEPS_OK+=("$label")
+    else
+        log "  ✗ $label failed — continuing" "$RED"
+        STEPS_FAILED+=("$label")
+    fi
+}
+
+print_summary() {
+    echo
+    log "──────────────────────────────────────────" "$BOLD"
+    log " Setup summary" "$BOLD"
+    log "──────────────────────────────────────────" "$BOLD"
+    success "  ✓ ${#STEPS_OK[@]} step(s) completed"
+    [ "${#STEPS_SKIPPED[@]}" -gt 0 ] && log "  • ${#STEPS_SKIPPED[@]} step(s) skipped"
+    if [ "${#STEPS_FAILED[@]}" -gt 0 ]; then
+        log "  ✗ ${#STEPS_FAILED[@]} step(s) failed:" "$RED"
+        local s
+        for s in "${STEPS_FAILED[@]}"; do log "      - $s" "$RED"; done
+    fi
+    echo
+    [ -n "$BACKUP_DIR" ] && log "  Backup:   $BACKUP_DIR"
+    log "  Rollback: setup.sh --rollback"
+    echo
+    success "Setup complete! Restart your shell to see the changes."
+    log "  Next: 'p10k configure', 'gh auth login'; re-login for docker/zsh changes."
+}
+
+# ---------------------------------------------------------------------------
+# Bootstrap (curl|bash → clone repo to disk and re-exec)
+# ---------------------------------------------------------------------------
+
+# True when $0 is a real file sitting next to the stow packages (a genuine clone).
+running_from_clone() {
+    local self="${BASH_SOURCE[0]}"
+    [ -f "$self" ] || return 1
+    local dir
+    dir="$(cd "$(dirname "$self")" && pwd)" || return 1
+    [ -d "$dir/.git" ] && [ -d "$dir/zsh" ] && [ -d "$dir/shell" ]
+}
+
+bootstrap_repo() {
+    # Prefer the script's own directory when it's a real file on disk.
+    if [ -n "$NO_CLONE" ] || running_from_clone; then
+        if [ -f "${BASH_SOURCE[0]}" ]; then
+            DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        else
+            DOTFILES_DIR="${DOTFILES_DIR:-$(pwd)}"
+        fi
+        return 0
+    fi
+
+    # curl|bash path: get the repo onto disk, then re-exec from there.
+    log "Bootstrapping dotfiles repo into $CLONE_DIR ..." "$BLUE"
+    ensure_git
+    if [ -d "$CLONE_DIR/.git" ]; then
+        log "Repo already present — updating..."
+        git -C "$CLONE_DIR" pull --ff-only || log "  (pull failed; using existing checkout)"
+    else
+        git clone "$REPO_URL" "$CLONE_DIR" || error "Failed to clone $REPO_URL"
+    fi
+    DOTFILES_DIR="$CLONE_DIR"
+    log "Re-executing from $CLONE_DIR/setup.sh ..." "$BLUE"
+    exec bash "$CLONE_DIR/setup.sh" --no-clone "$@"
+}
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 main() {
+    parse_args "$@"
+
+    if [ -n "$DO_ROLLBACK" ]; then
+        rollback_mode
+        exit 0
+    fi
+
+    # May re-exec and not return (curl|bash). After this, DOTFILES_DIR is set.
+    bootstrap_repo "$@"
+
+    TOTAL=19
     checkEnv
-    setup_repositories
-    installDepend
-    setup_bat
-    install_gh
-    install_docker
-    install_vault
-    install_devbox
-    install_stern
-    install_tfenv
-    install_nerd_fonts
-    setup_shell_environment
-    install_additional_tools
-    install_lazygit
-    install_claude
-    install_ghq
-    install_syncthing
-    install_kubernetes_tools
-    setup_direnv
-    install_optional_tools
+
+    run_step "Configuring package repositories" setup_repositories
+    run_step "Installing base dependencies"      installDepend
+    run_step "Configuring bat"                    setup_bat
+    run_step "Installing GitHub CLI"              install_gh
+    run_step "Installing Docker"                  install_docker
+    run_step "Installing Vault"                   install_vault
+    run_step "Installing devbox"                  install_devbox
+    run_step "Installing stern"                   install_stern
+    run_step "Installing tfenv"                   install_tfenv
+    run_step "Installing Nerd Fonts"             install_nerd_fonts
+    run_step "Setting up zsh + Powerlevel10k"     setup_shell_environment
+    run_step "Installing fzf/zoxide/starship"     install_additional_tools
+    run_step "Installing lazygit"                 install_lazygit
+    run_step "Installing Claude Code"             install_claude
+    run_step "Installing ghq"                     install_ghq
+    run_step "Installing Syncthing"               install_syncthing
+    run_step "Installing Kubernetes tools"        install_kubernetes_tools
+    run_step "Configuring direnv"                 setup_direnv
+    run_step "Optional tools"                     install_optional_tools
+
+    # Critical steps — fatal on failure.
     backup_configs
     setup_dotfiles
     configure_shell_preference
-    success "Setup complete! Restart your shell to see the changes."
+
+    print_summary
 }
 
 main "$@"
