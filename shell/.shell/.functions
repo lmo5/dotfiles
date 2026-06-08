@@ -526,3 +526,10 @@ run-tf-generation() {
     -e "onecarrefour_terraform_env=${terraform_env}" \
     --vault-password-file "$vault_password_file"
 }
+
+ask() {
+     NODE_NO_WARNINGS=1 gemini -e none -m flash -p "$*" 2>/dev/null
+   }
+
+
+

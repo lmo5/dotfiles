@@ -21,3 +21,4 @@ claude/.claude/sessions/
 claude/.claude/shell-snapshots/
 claude/.claude/stats-cache.json
 claude/.claude/.last-cleanup
+shell/.shell/.exports

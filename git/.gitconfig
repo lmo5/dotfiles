@@ -78,6 +78,7 @@
 	serie = !serie -p kitty -o topo
 	code-changes = "!git log --format=format: --name-only | egrep -v '^$' | sort | uniq -c | sort -rg | head -10"
 	cc = "!git code-changes"
+	amend-push = !git add -u && git commit --amend --no-edit && git push --force-with-lease
 [rebase]
   autoSquash = true
   autoStash = true
