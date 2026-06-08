@@ -716,6 +716,7 @@ backup_configs() {
         if [ -f "$HOME/$config" ] && [ ! -L "$HOME/$config" ]; then
             mkdir -p "$(dirname "$BACKUP_DIR/$config")"
             cp -a "$HOME/$config" "$BACKUP_DIR/$config"
+            rm -f "$HOME/$config"
             echo "$config" >> "$BACKUP_DIR/manifest.txt"
             backed_up=$((backed_up + 1))
         fi

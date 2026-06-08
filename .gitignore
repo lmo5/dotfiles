@@ -13,6 +13,7 @@ claude/.claude/plans/
 claude/.claude/plugins/cache/
 claude/.claude/plugins/data/
 claude/.claude/plugins/installed_plugins.json
+claude/.claude/plugins/known_marketplaces.json
 claude/.claude/plugins/marketplaces/
 claude/.claude/projects/
 claude/.claude/session-env/
