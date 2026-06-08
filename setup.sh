@@ -259,7 +259,7 @@ installDepend() {
             ;;
         nala|apt)
             for pkg in \
-                bash bash-completion tar bat tree multitail fastfetch \
+                bash bash-completion tar bat tree multitail \
                 wget unzip fontconfig neovim zsh stow curl git \
                 kubectl apt-transport-https ca-certificates \
                 direnv tmux htop trash-cli jq; do
@@ -319,6 +319,28 @@ setup_bat() {
             fi
             ;;
     esac
+}
+
+install_fastfetch() {
+    command_exists fastfetch && { log "fastfetch is already installed."; return; }
+    log "Installing fastfetch..."
+    case "$PACKAGER" in
+        nala|apt)
+            # Ubuntu/Debian don't ship fastfetch in their default repos —
+            # grab the latest .deb release directly from GitHub.
+            local url deb
+            url=$(curl -fsSL https://api.github.com/repos/fastfetch-cli/fastfetch/releases/latest \
+                | grep -o '"browser_download_url": *"[^"]*linux-amd64\.deb"' \
+                | head -1 | cut -d'"' -f4)
+            [ -n "$url" ] || { log "Could not resolve fastfetch release URL; skipping."; return 1; }
+            deb="$(mktemp --suffix=.deb)"
+            curl -fsSL "$url" -o "$deb" || { rm -f "$deb"; error "Failed to download fastfetch from $url"; }
+            ${SUDO_CMD} apt-get install -y "$deb"
+            rm -f "$deb"
+            ;;
+        *) pkg_install fastfetch ;;
+    esac
+    command_exists fastfetch && success "fastfetch installed." || error "Failed to install fastfetch."
 }
 
 install_gh() {
@@ -977,12 +999,13 @@ main() {
     # May re-exec and not return (curl|bash). After this, DOTFILES_DIR is set.
     bootstrap_repo "$@"
 
-    TOTAL=19
+    TOTAL=20
     checkEnv
 
     run_step "Configuring package repositories" setup_repositories
     run_step "Installing base dependencies"      installDepend
     run_step "Configuring bat"                    setup_bat
+    run_step "Installing fastfetch"               install_fastfetch
     run_step "Installing GitHub CLI"              install_gh
     run_step "Installing Docker"                  install_docker
     run_step "Installing Vault"                   install_vault
