@@ -1,5 +1,3 @@
-shell/.shell/.exports
-
 # Claude — never commit credentials or session data
 claude/.claude/.credentials.json
 claude/.claude/history.jsonl
