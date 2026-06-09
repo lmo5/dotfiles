@@ -531,5 +531,18 @@ ask() {
      NODE_NO_WARNINGS=1 gemini -e none -m flash -p "$*" 2>/dev/null
    }
 
+# Jump to a ghq-managed repo interactively
+repo() {
+    if ! command -v ghq >/dev/null 2>&1; then
+        echo "ghq is not installed" >&2; return 1
+    fi
+    if ! command -v fzf >/dev/null 2>&1; then
+        echo "fzf is not installed" >&2; return 1
+    fi
+    local dir
+    dir=$(ghq list --full-path | fzf --preview 'ls -1 {}' --preview-window=right:40%) || return
+    cd "$dir"
+}
+
 
 
