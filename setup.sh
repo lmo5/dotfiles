@@ -821,6 +821,40 @@ rollback_mode() {
     success "Rollback complete: restored $restored file(s) from $(basename "$chosen")."
 }
 
+# True when every file in package $1 is already symlinked from $HOME back into
+# this repo (resolved by real path, so a correct link counts even if its text
+# differs). Lets us skip stow entirely when the package is already in place —
+# avoids needless restow churn and the spurious GNU Stow "find_stowed_path"
+# warning it can trigger while rescanning the target tree. Must be called with
+# the cwd set to $DOTFILES_DIR.
+pkg_already_stowed() {
+    local pkg="$1" src rel dest
+    while IFS= read -r src; do
+        rel="${src#"$pkg/"}"
+        dest="$HOME/$rel"
+        [ -L "$dest" ] || return 1
+        [ "$(readlink -f "$dest")" = "$(readlink -f "$src")" ] || return 1
+    done < <(find "$pkg" \( -type f -o -type l \))
+    return 0
+}
+
+# Remove ONLY stale or dangling symlinks at a package's managed paths so a fresh
+# stow can take over (e.g. a leftover link into an old/differently-named stow
+# dir, which stow would otherwise refuse as "not owned by stow"). Real files are
+# never touched — those are handled by backup_configs. Must run with cwd set to
+# $DOTFILES_DIR.
+clear_stale_links() {
+    local pkg="$1" src rel dest
+    while IFS= read -r src; do
+        rel="${src#"$pkg/"}"
+        dest="$HOME/$rel"
+        if [ -L "$dest" ] && [ "$(readlink -f "$dest")" != "$(readlink -f "$src")" ]; then
+            log "  removing stale symlink: $dest -> $(readlink "$dest")"
+            rm -f "$dest"
+        fi
+    done < <(find "$pkg" \( -type f -o -type l \))
+}
+
 setup_dotfiles() {
     log "Setting up dotfiles via stow..."
     [ -d "$DOTFILES_DIR" ] || error "Dotfiles directory not found: $DOTFILES_DIR"
@@ -830,6 +864,11 @@ setup_dotfiles() {
     local pkg
     while IFS= read -r pkg; do
         if [ -d "$pkg" ]; then
+            if pkg_already_stowed "$pkg"; then
+                log "$pkg already stowed correctly — skipping."
+                continue
+            fi
+            clear_stale_links "$pkg"
             log "Stowing $pkg..."
             stow --no-folding -v -R -t "$HOME" "$pkg" || error "Failed to stow $pkg"
         else
