@@ -454,6 +454,10 @@ install_nerd_fonts() {
         log "Font '$FONT_NAME' is already installed."
         return
     fi
+    if ! prompt_yn "Install Nerd Font '$FONT_NAME' (needed for Powerlevel10k icons)?" y; then
+        log "Skipping Nerd Font install — leaving fonts untouched."
+        return 2   # signals run_step to record this as skipped, not done
+    fi
     log "Installing font '$FONT_NAME'..."
     local FONT_URL="https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Meslo.zip"
     local FONT_DIR="$HOME/.local/share/fonts"
@@ -918,8 +922,12 @@ run_step() {
     local label="$1"; shift
     STEP=$((STEP + 1))
     log "[ $STEP/$TOTAL ] $label" "$BLUE"
-    if "$@"; then
+    local rc=0
+    "$@" || rc=$?
+    if [ "$rc" -eq 0 ]; then
         STEPS_OK+=("$label")
+    elif [ "$rc" -eq 2 ]; then
+        STEPS_SKIPPED+=("$label")
     else
         log "  ✗ $label failed — continuing" "$RED"
         STEPS_FAILED+=("$label")
@@ -932,7 +940,11 @@ print_summary() {
     log " Setup summary" "$BOLD"
     log "──────────────────────────────────────────" "$BOLD"
     success "  ✓ ${#STEPS_OK[@]} step(s) completed"
-    [ "${#STEPS_SKIPPED[@]}" -gt 0 ] && log "  • ${#STEPS_SKIPPED[@]} step(s) skipped"
+    if [ "${#STEPS_SKIPPED[@]}" -gt 0 ]; then
+        log "  • ${#STEPS_SKIPPED[@]} step(s) skipped:"
+        local sk
+        for sk in "${STEPS_SKIPPED[@]}"; do log "      - $sk"; done
+    fi
     if [ "${#STEPS_FAILED[@]}" -gt 0 ]; then
         log "  ✗ ${#STEPS_FAILED[@]} step(s) failed:" "$RED"
         local s
