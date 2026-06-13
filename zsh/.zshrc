@@ -81,6 +81,8 @@ CASE_SENSITIVE="false"
 for file in "$HOME/.shell/."{exports,aliases,functions,external,zsh_completions,env}; do
     [ -r "$file" ] && source "$file"
 done
+# Local secret values (gitignored), loaded after .exports so they take precedence.
+[ -r "$HOME/.shell/.exports.local" ] && source "$HOME/.shell/.exports.local"
 plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-completions kube-ps1 direnv fzf)
 
 source $ZSH/oh-my-zsh.sh

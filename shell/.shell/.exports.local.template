@@ -1,0 +1,10 @@
+# ~/.shell/.exports.local — LOCAL secret values (gitignored, never committed).
+#
+# setup.sh copies this template to ~/.shell/.exports.local on first run, and on
+# later runs APPENDS any keys added here that you don't already have — it never
+# overwrites or deletes values you've set. Fill in the real values below.
+#
+# This file is sourced AFTER .exports, so anything here wins.
+
+export CONFLUENCE_MCP_TOKEN=""
+export JIRA_MCP_TOKEN=""

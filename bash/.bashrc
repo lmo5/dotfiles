@@ -22,6 +22,8 @@ fi
 for file in "$HOME/.shell/."{exports,aliases,functions,external,bash_completions,env}; do
     [ -r "$file" ] && source "$file"
 done
+# Local secret values (gitignored), loaded after .exports so they take precedence.
+[ -r "$HOME/.shell/.exports.local" ] && source "$HOME/.shell/.exports.local"
      
 eval "$(starship init bash)"
 eval "$(zoxide init bash)"

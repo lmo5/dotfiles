@@ -722,12 +722,26 @@ stow_packages() {
 }
 
 backup_configs() {
+    # Collect the REAL files first — symlinks already pointing into the repo are
+    # skipped. If nothing needs backing up, create no directory and no manifest
+    # at all (avoids empty, manifest-only backup folders).
+    local config
+    local -a to_backup=()
+    while IFS= read -r config; do
+        if [ -f "$HOME/$config" ] && [ ! -L "$HOME/$config" ]; then
+            to_backup+=("$config")
+        fi
+    done < <(managed_configs)
+
+    if [ "${#to_backup[@]}" -eq 0 ]; then
+        log "No real config files to back up — nothing to do."
+        return 0
+    fi
+
     BACKUP_DIR="$BACKUP_ROOT/$(date -u +%Y%m%dT%H%M%SZ)"
-    log "Backing up existing configurations to $BACKUP_DIR ..."
+    log "Backing up ${#to_backup[@]} existing config file(s) to $BACKUP_DIR ..."
     mkdir -p "$BACKUP_DIR" || error "Could not create backup directory $BACKUP_DIR"
 
-    local config backed_up=0
-    : > "$BACKUP_DIR/manifest.txt"
     {
         echo "# dotfiles backup manifest"
         echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -735,20 +749,20 @@ backup_configs() {
         echo "[packages]"
         stow_packages
         echo "[files]"
-    } >> "$BACKUP_DIR/manifest.txt"
+        printf '%s\n' "${to_backup[@]}"
+    } > "$BACKUP_DIR/manifest.txt"
 
-    while IFS= read -r config; do
-        # Only back up REAL files — skip symlinks that already point into the repo.
-        if [ -f "$HOME/$config" ] && [ ! -L "$HOME/$config" ]; then
-            mkdir -p "$(dirname "$BACKUP_DIR/$config")"
-            cp -a "$HOME/$config" "$BACKUP_DIR/$config"
-            rm -f "$HOME/$config"
-            echo "$config" >> "$BACKUP_DIR/manifest.txt"
-            backed_up=$((backed_up + 1))
-        fi
-    done < <(managed_configs)
+    # Archive all files in one compressed tarball, stored $HOME-relative so
+    # rollback can extract straight back with `tar -C "$HOME"`.
+    tar -czf "$BACKUP_DIR/files.tar.gz" -C "$HOME" "${to_backup[@]}" \
+        || error "Failed to create backup archive $BACKUP_DIR/files.tar.gz"
 
-    success "Backed up $backed_up existing config file(s). Roll back with: setup.sh --rollback"
+    # Only remove originals once the archive is safely written.
+    for config in "${to_backup[@]}"; do
+        rm -f "$HOME/$config"
+    done
+
+    success "Backed up ${#to_backup[@]} config file(s) to files.tar.gz. Roll back with: setup.sh --rollback"
 }
 
 # ---------------------------------------------------------------------------
@@ -803,20 +817,30 @@ rollback_mode() {
     fi
 
     # 2) Restore the saved files.
-    local f in_files=0 restored=0
-    while IFS= read -r f; do
-        case "$f" in
-            "[files]") in_files=1; continue ;;
-        esac
-        [ "$in_files" = 1 ] || continue
-        [[ "$f" == \#* || -z "$f" ]] && continue
-        if [ -f "$chosen/$f" ]; then
-            mkdir -p "$(dirname "$HOME/$f")"
-            cp -a "$chosen/$f" "$HOME/$f"
-            restored=$((restored + 1))
-            log "  restored $f"
-        fi
-    done < "$manifest"
+    local restored=0
+    if [ -f "$chosen/files.tar.gz" ]; then
+        # New-style backup: one compressed archive, files stored $HOME-relative.
+        tar -xzf "$chosen/files.tar.gz" -C "$HOME" \
+            || error "Failed to extract $chosen/files.tar.gz"
+        restored=$(tar -tzf "$chosen/files.tar.gz" | grep -cv '/$')
+        log "  restored $restored file(s) from files.tar.gz"
+    else
+        # Legacy backup: loose files copied alongside the manifest.
+        local f in_files=0
+        while IFS= read -r f; do
+            case "$f" in
+                "[files]") in_files=1; continue ;;
+            esac
+            [ "$in_files" = 1 ] || continue
+            [[ "$f" == \#* || -z "$f" ]] && continue
+            if [ -f "$chosen/$f" ]; then
+                mkdir -p "$(dirname "$HOME/$f")"
+                cp -a "$chosen/$f" "$HOME/$f"
+                restored=$((restored + 1))
+                log "  restored $f"
+            fi
+        done < "$manifest"
+    fi
 
     success "Rollback complete: restored $restored file(s) from $(basename "$chosen")."
 }
@@ -882,6 +906,44 @@ setup_dotfiles() {
         chmod +x "$DOTFILES_DIR/scripts/repo-sync"
         ln -sf "$DOTFILES_DIR/scripts/repo-sync" "$HOME/.local/bin/repo-sync"
         log "repo-sync linked to ~/.local/bin/repo-sync"
+    fi
+}
+
+# Maintain ~/.shell/.exports.local — the gitignored file holding real secret
+# values, sourced after the tracked (secret-free) .exports. We only ADD keys
+# declared in the committed template that aren't already present; existing keys
+# and their values are never modified or removed. Run after setup_dotfiles so
+# the stowed ~/.shell/ directory exists.
+merge_local_exports() {
+    local tmpl="$DOTFILES_DIR/shell/.shell/.exports.local.template"
+    local target="$HOME/.shell/.exports.local"
+    [ -f "$tmpl" ] || { log "No .exports.local.template — skipping secrets setup."; return 0; }
+
+    mkdir -p "$HOME/.shell"
+    if [ ! -f "$target" ]; then
+        cp "$tmpl" "$target"
+        chmod 600 "$target"
+        success "Created $target from template — edit it to fill in your secret values."
+        return 0
+    fi
+
+    chmod 600 "$target" 2>/dev/null || true
+    local line key added=0
+    while IFS= read -r line; do
+        case "$line" in
+            export\ *=*)
+                key="${line#export }"; key="${key%%=*}"
+                if ! grep -qE "^[[:space:]]*export[[:space:]]+${key}=" "$target"; then
+                    printf '%s\n' "$line" >> "$target"
+                    log "  added new secret key: $key"
+                    added=$((added + 1))
+                fi ;;
+        esac
+    done < "$tmpl"
+    if [ "$added" -gt 0 ]; then
+        success "Added $added new key(s) to $target (existing values left untouched)."
+    else
+        log ".exports.local already has every template key — nothing to add."
     fi
 }
 
@@ -1077,6 +1139,7 @@ main() {
     # Critical steps — fatal on failure.
     backup_configs
     setup_dotfiles
+    merge_local_exports
     configure_shell_preference
 
     print_summary

@@ -22,5 +22,7 @@ export PATH=$PATH:"$HOME/.local/bin:$HOME/.cargo/bin:/var/lib/flatpak/exports/bi
 export VAULT_ADDR=https://vault
 export VAULT_LDAP_USER=ayoub
 export GOOGLE_CLOUD_PROJECT=vdfdf
-export CONFLUENCE_MCP_TOKEN="NzY45"
-export JIRA_MCP_TOKEN="+1AwzGcov"
+
+# Secret values live in ~/.shell/.exports.local (gitignored), sourced after this
+# file. Add new secret keys to shell/.shell/.exports.local.template so setup can
+# seed them. Do NOT put real tokens here — this file is committed.
