@@ -87,6 +87,20 @@ plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-completions kube-ps
 
 source $ZSH/oh-my-zsh.sh
 
+# kubectl completion (must run after oh-my-zsh.sh, which initializes compinit).
+# Cached to avoid the ~100ms `kubectl completion zsh` call on every shell start.
+if command -v kubectl >/dev/null 2>&1; then
+  _kube_cache="${XDG_CACHE_HOME:-$HOME/.cache}/kubectl-completion.zsh"
+  if [[ ! -s "$_kube_cache" || "$(command -v kubectl)" -nt "$_kube_cache" ]]; then
+    mkdir -p "${_kube_cache:h}"
+    kubectl completion zsh > "$_kube_cache"
+  fi
+  source "$_kube_cache"
+  # Make the `k` alias (k=kubectl) tab-complete like kubectl.
+  compdef k=kubectl
+  unset _kube_cache
+fi
+
 # User configuration
 
 # export MANPATH="/usr/local/man:$MANPATH"
