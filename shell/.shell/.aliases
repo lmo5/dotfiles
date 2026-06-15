@@ -270,3 +270,7 @@ alias hla='helm ls -A'
 alias sync-private='rsync -rlD --no-compress --partial --info=progress2 --stats /media/ayoub/data/private/ /mnt/nas-private/'
 
 alias gcampf='git add -u && git commit --amend --no-edit && git push --force-with-lease'
+
+# Claude Code
+alias c='claude'
+alias cyolo='claude --dangerously-skip-permissions'

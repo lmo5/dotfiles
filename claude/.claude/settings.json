@@ -10,6 +10,10 @@
     "pr": ""
   },
   "includeCoAuthoredBy": false,
+  "model": "sonnet",
+  "permissions": {
+    "defaultMode": "auto"
+  },
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline-command.sh",
