@@ -63,7 +63,7 @@ pkg_install() {
     case "$PACKAGER" in
         pacman)       ${AUR_HELPER} --noconfirm -S "$pkg" ;;
         nala|apt)     ${SUDO_CMD} DEBIAN_FRONTEND=noninteractive ${PACKAGER} install -y "$pkg" ;;
-        zypper)       ${SUDO_CMD} ${PACKAGER} install -n "$pkg" ;;
+        zypper)       ${SUDO_CMD} ${PACKAGER} install -y "$pkg" ;;
         dnf|yum)      ${SUDO_CMD} ${PACKAGER} install -y "$pkg" ;;
         emerge)       ${SUDO_CMD} ${PACKAGER} -v "$pkg" ;;
         xbps-install) ${SUDO_CMD} ${PACKAGER} -y "$pkg" ;;
