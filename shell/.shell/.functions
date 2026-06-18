@@ -546,3 +546,14 @@ repo() {
 
 
 
+
+# Clone an entire GitLab group using ghq
+ghq_clone_group() {
+  if [ -z "$1" ]; then
+    echo "Usage: ghq_clone_group <group-path>"
+    return 1
+  fi
+  glab repo list --group "$1" --include-subgroups --output json --per-page 100 \
+    | jq -r '.[].sshUrlToRepo' \
+    | xargs -I {} ghq get -p {}
+}

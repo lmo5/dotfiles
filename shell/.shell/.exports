@@ -19,9 +19,9 @@ export LESS_TERMCAP_so=$'\E[01;44;33m'
 export LESS_TERMCAP_ue=$'\E[0m'
 export LESS_TERMCAP_us=$'\E[01;32m'
 export PATH=$PATH:"$HOME/.local/bin:$HOME/.cargo/bin:/var/lib/flatpak/exports/bin:/.local/share/flatpak/exports/bin"
-export VAULT_ADDR=https://vault
-export VAULT_LDAP_USER=ayoub
-export GOOGLE_CLOUD_PROJECT=vdfdf
+export VAULT_ADDR=https://vault.agilefabric.fr.carrefour.com
+export VAULT_LDAP_USER=ayoub_el_moukhtafi
+export GOOGLE_CLOUD_PROJECT=vg1p-apps-gemini-code-b1
 
 # Secret values live in ~/.shell/.exports.local (gitignored), sourced after this
 # file. Add new secret keys to shell/.shell/.exports.local.template so setup can

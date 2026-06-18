@@ -274,3 +274,6 @@ alias gcampf='git add -u && git commit --amend --no-edit && git push --force-wit
 # Claude Code
 alias c='claude'
 alias cyolo='claude --dangerously-skip-permissions'
+
+# Alias for cloning GitLab groups via ghq
+alias pglabgrp='ghq_clone_group'
