@@ -83,6 +83,8 @@ for file in "$HOME/.shell/."{exports,aliases,functions,external,zsh_completions,
 done
 # Local secret values (gitignored), loaded after .exports so they take precedence.
 [ -r "$HOME/.shell/.exports.local" ] && source "$HOME/.shell/.exports.local"
+# Machine-local secrets (gitignored); optional.
+[ -f "$HOME/.shell/.env.local" ] && source "$HOME/.shell/.env.local"
 plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-completions kube-ps1 direnv fzf)
 
 source $ZSH/oh-my-zsh.sh

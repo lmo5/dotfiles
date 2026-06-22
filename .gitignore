@@ -20,3 +20,7 @@ claude/.claude/shell-snapshots/
 claude/.claude/stats-cache.json
 claude/.claude/.last-cleanup
 shell/.shell/.exports.local
+
+# Local, machine-specific secrets (e.g. STSYNC_SERVER_APIKEY) — never commit.
+shell/.shell/.env.local
+.shell/.env.local

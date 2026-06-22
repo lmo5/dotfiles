@@ -24,7 +24,9 @@ for file in "$HOME/.shell/."{exports,aliases,functions,external,bash_completions
 done
 # Local secret values (gitignored), loaded after .exports so they take precedence.
 [ -r "$HOME/.shell/.exports.local" ] && source "$HOME/.shell/.exports.local"
-     
+# Machine-local secrets (gitignored); optional.
+[ -f "$HOME/.shell/.env.local" ] && source "$HOME/.shell/.env.local"
+
 eval "$(starship init bash)"
 eval "$(zoxide init bash)"
 eval "$(direnv hook bash)"
