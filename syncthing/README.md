@@ -47,48 +47,32 @@ The web UI is available at `http://127.0.0.1:8384` after the service starts.
 
 ---
 
-## 2. Device Pairing
+## 2. Device Pairing (one-time per laptop)
 
-Pair each laptop with the server (one-time per laptop).
+Run the bootstrap (installs Syncthing, pairs with the hub, introducer on,
+autoAcceptFolders OFF, registers the laptop on the hub):
 
-### On the server
+    STSYNC_SERVER_APIKEY=<hub key> bash ~/.dotfiles/syncthing/setup-syncthing.sh
 
-1. Open the Syncthing GUI (`https://sync.homelab.local` via Caddy, or port `8384`).
-2. Note the server's **Device ID** — Actions → Show ID.
-3. Export it on both laptops:
-   ```bash
-   export STSYNC_SERVER_DEVICE_ID="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
-   # Add to ~/.shell/.env to make it permanent
-   ```
+Put the hub key in `~/.shell/.env.local` (gitignored) so it persists:
 
-### On each laptop
-
-1. Open `http://127.0.0.1:8384`.
-2. Add the server: **Add Remote Device** → paste the server Device ID → Save.
-3. On the server, accept the pending device introduction.
-4. Tick **Introducer** on the server device entry (on the laptop):
-   - Go to the device entry → Edit → tick **Introducer**.
-   - This lets the server introduce shared folders to other laptops automatically.
+    echo 'export STSYNC_SERVER_APIKEY="<hub key>"' >> ~/.shell/.env.local
 
 ---
 
-## 3. Per-Repo Onboarding (add a repo to sync)
+## 3. Per-Repo Onboarding
 
-```bash
-# 1. Clone the repo via ghq (creates ~/repos/<host>/<owner>/<repo>)
-ghq get git@github.com:lmo5/dotfiles.git
+First laptop (clones history from GitHub, registers WIP sync, mirrors to hub):
 
-# 2. Register it with Syncthing (shares with the server, applies .stignore)
-repo-sync add ~/repos/github.com/lmo5/dotfiles
+    repo-sync get git@github.com:owner/repo.git
 
-# 3. Accept the folder on the server when prompted, or wait for auto-accept.
-# 4. On laptop B: the folder is introduced by the server — accept it when prompted.
-```
+Any other laptop (pulls everything the hub offers, at the correct ghq path):
 
-The `repo-sync add` command:
-- Derives a folder ID from the ghq path (e.g. `github.com-lmo5-dotfiles`).
-- Copies `stignore.template` → `<repo>/.stignore` (excludes build artefacts).
-- POSTs the folder config to the local Syncthing REST API.
+    repo-sync adopt
+
+Check sync state before switching machines:
+
+    repo-sync status
 
 ---
 
@@ -139,14 +123,16 @@ repo-sync rm ~/repos/github.com/lmo5/old-project
 
 ## 7. Environment Variables
 
-| Variable                 | Purpose                                      |
-|--------------------------|----------------------------------------------|
-| `STSYNC_SERVER_DEVICE_ID`| Hub server device ID (required)              |
-| `STSYNC_APIKEY`          | API key override (default: parsed from XML)  |
-| `STSYNC_URL`             | API base URL (default: `http://127.0.0.1:8384`) |
-| `GHQ_ROOT`               | ghq tree root (default: `~/repos`)           |
+| Variable                    | Purpose                                      |
+|-----------------------------|----------------------------------------------|
+| `STSYNC_SERVER_DEVICE_ID`   | Hub server device ID (required)              |
+| `STSYNC_SERVER_APIKEY`      | Hub API key (store in `~/.shell/.env.local`) |
+| `STSYNC_SERVER_REPOS_ROOT`  | Hub repos root (default: `/var/syncthing/data`, the hub container path) |
+| `STSYNC_APIKEY`             | API key override (default: parsed from XML)  |
+| `STSYNC_URL`                | API base URL (default: `http://127.0.0.1:8384`) |
+| `GHQ_ROOT`                  | ghq tree root (default: `~/repos`)           |
 
-Add `STSYNC_SERVER_DEVICE_ID` to `~/.shell/.env` to avoid setting it every session.
+Add `STSYNC_SERVER_DEVICE_ID` to `~/.shell/.env` to avoid setting it every session. The hub runs Syncthing in Docker (`homelab-sync`).
 
 ---
 
