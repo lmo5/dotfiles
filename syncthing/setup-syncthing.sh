@@ -134,14 +134,14 @@ add_server_device() {
             "$SYNCTHING_LOCAL_URL/rest/config/devices/$server_id")
         local updated
         updated=$(printf '%s' "$current" \
-            | python3 -c "import sys,json; d=json.load(sys.stdin); d['introducer']=True; d['autoAcceptFolders']=True; print(json.dumps(d))")
+            | python3 -c "import sys,json; d=json.load(sys.stdin); d['introducer']=True; d['autoAcceptFolders']=False; print(json.dumps(d))")
         curl -s -o /dev/null -w '' \
             -X PUT \
             -H "X-API-Key: $api_key" \
             -H "Content-Type: application/json" \
             -d "$updated" \
             "$SYNCTHING_LOCAL_URL/rest/config/devices/$server_id"
-        success "Server device updated (introducer=true, autoAcceptFolders=true)."
+        success "Server device updated (introducer=true, autoAcceptFolders=false)."
         return
     fi
 
@@ -155,7 +155,7 @@ print(json.dumps({
     'addresses': ['dynamic'],
     'compression': 'metadata',
     'introducer': True,
-    'autoAcceptFolders': True,
+    'autoAcceptFolders': False,
     'paused': False
 }))
 ")
@@ -169,7 +169,7 @@ print(json.dumps({
         "$SYNCTHING_LOCAL_URL/rest/config/devices")
 
     if [[ "$http_code" == "200" ]]; then
-        success "Server device added (introducer=true, autoAcceptFolders=true)."
+        success "Server device added (introducer=true, autoAcceptFolders=false)."
     else
         error "Failed to add server device (HTTP $http_code). Check the Syncthing web UI."
     fi
@@ -206,6 +206,27 @@ remove_default_folder() {
     fi
 }
 
+# ── Register this laptop on the hub (so the hub can share folders to it) ──────
+register_self_with_hub() {
+    [[ -n "${STSYNC_SERVER_APIKEY:-}" ]] || { log "STSYNC_SERVER_APIKEY unset — skipping hub self-registration."; return; }
+    local base="${STSYNC_SERVER_URL:-$SYNCTHING_SERVER_URL}" my_id name
+    my_id=$(curl -s -H "X-API-Key: $1" "$SYNCTHING_LOCAL_URL/rest/system/status" \
+        | python3 -c "import sys,json;print(json.load(sys.stdin)['myID'])" 2>/dev/null)
+    [[ -n "$my_id" ]] || { log "Could not read local device ID — skipping hub registration."; return; }
+    name="$(hostname)"
+    if [[ "$(curl -s -o /dev/null -w '%{http_code}' -H "X-API-Key: $STSYNC_SERVER_APIKEY" "$base/rest/config/devices/$my_id")" == "200" ]]; then
+        log "This laptop is already known to the hub."
+        return
+    fi
+    local payload
+    payload=$(python3 -c "import json;print(json.dumps({'deviceID':'$my_id','name':'$name','addresses':['dynamic'],'compression':'metadata'}))")
+    if [[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "X-API-Key: $STSYNC_SERVER_APIKEY" -H 'Content-Type: application/json' -d "$payload" "$base/rest/config/devices")" == "200" ]]; then
+        success "Registered this laptop ($name) on the hub."
+    else
+        log "Could not register this laptop on the hub (add it manually in the hub UI)."
+    fi
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 main() {
     log "=== Syncthing Laptop Setup ==="
@@ -222,6 +243,7 @@ main() {
     echo
 
     add_server_device "$api_key" "$server_id"
+    register_self_with_hub "$api_key"
     persist_env "$server_id"
     remove_default_folder "$api_key"
 
