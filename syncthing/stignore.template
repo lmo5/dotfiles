@@ -14,3 +14,9 @@ __pycache__
 
 // Log files
 *.log
+
+// Transient git lock files — never sync (cause spurious locks / churn).
+// .git itself IS still synced; only these volatile lock files are excluded.
+(?d).git/index.lock
+(?d).git/*.lock
+(?d).git/**/*.lock
