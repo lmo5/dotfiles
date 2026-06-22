@@ -638,19 +638,19 @@ install_ente_auth() {
     temp_dir=$(mktemp -d)
     case "$PACKAGER" in
         nala|apt)
-            curl -sL "${base_url}/ente-auth-${ENTE_TAG}-x86_64.deb" -o "$temp_dir/ente-auth.deb"
+            curl -fsSL "${base_url}/ente-${ENTE_TAG}-x86_64.deb" -o "$temp_dir/ente-auth.deb"
             ${SUDO_CMD} DEBIAN_FRONTEND=noninteractive ${PACKAGER} install -y "$temp_dir/ente-auth.deb"
             ;;
         zypper)
-            curl -sL "${base_url}/ente-auth-${ENTE_TAG}-x86_64.rpm" -o "$temp_dir/ente-auth.rpm"
+            curl -fsSL "${base_url}/ente-${ENTE_TAG}-x86_64.rpm" -o "$temp_dir/ente-auth.rpm"
             ${SUDO_CMD} zypper install -y --allow-unsigned-rpm "$temp_dir/ente-auth.rpm"
             ;;
         dnf|yum)
-            curl -sL "${base_url}/ente-auth-${ENTE_TAG}-x86_64.rpm" -o "$temp_dir/ente-auth.rpm"
+            curl -fsSL "${base_url}/ente-${ENTE_TAG}-x86_64.rpm" -o "$temp_dir/ente-auth.rpm"
             ${SUDO_CMD} ${PACKAGER} install -y "$temp_dir/ente-auth.rpm"
             ;;
         *)
-            curl -sL "${base_url}/ente-auth-${ENTE_TAG}-x86_64.AppImage" -o "$temp_dir/ente-auth.AppImage"
+            curl -fsSL "${base_url}/ente-${ENTE_TAG}-x86_64.AppImage" -o "$temp_dir/ente-auth.AppImage"
             install -Dm755 "$temp_dir/ente-auth.AppImage" "$HOME/.local/bin/ente-auth.AppImage"
             ln -sf "$HOME/.local/bin/ente-auth.AppImage" "$HOME/.local/bin/ente-auth"
             mkdir -p "$HOME/.local/share/applications"
