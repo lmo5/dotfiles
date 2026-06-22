@@ -318,9 +318,9 @@ cmd_add_all() {
         local repo_path="${git_dir%/.git}"
         printf '[%s] ' "$(_rel_from_path "$repo_path")"
         if cmd_add "$repo_path"; then
-            (( count++ ))
+            (( ++count ))
         else
-            (( fail++ ))
+            (( ++fail ))
         fi
     done < <(find "$GHQ_ROOT" -name ".git" -type d 2>/dev/null | sort)
     printf '\nDone: %d registered, %d failed.\n' "$count" "$fail"
