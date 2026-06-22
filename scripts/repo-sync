@@ -6,6 +6,8 @@ SYNCTHING_API="${STSYNC_URL:-http://127.0.0.1:8384}"
 GHQ_ROOT="${GHQ_ROOT:-$HOME/repos}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STIGNORE_TEMPLATE="${STIGNORE_TEMPLATE:-$SCRIPT_DIR/../syncthing/stignore.template}"
+STSYNC_SERVER_URL="${STSYNC_SERVER_URL:-https://sync.ayplace.xyz}"
+STSYNC_SERVER_REPOS_ROOT="${STSYNC_SERVER_REPOS_ROOT:-/var/syncthing/data}"
 
 # ---------------------------------------------------------------------------
 # Config helpers
@@ -36,6 +38,16 @@ _get_server_device_id() {
         printf '%s' "$STSYNC_SERVER_DEVICE_ID"
         return
     fi
+    # Fall back to the persisted value in ~/.shell/.env (not sourced in
+    # non-interactive shells), mirroring syncthing/setup-syncthing.sh.
+    local env_file="$HOME/.shell/.env" id
+    if [[ -f "$env_file" ]]; then
+        id=$(sed -n 's|^export STSYNC_SERVER_DEVICE_ID="\{0,1\}\([^"]*\)"\{0,1\}.*|\1|p' "$env_file" | head -n1)
+        if [[ -n "$id" ]]; then
+            printf '%s' "$id"
+            return
+        fi
+    fi
     # shellcheck disable=SC2016
     printf 'Error: $STSYNC_SERVER_DEVICE_ID is not set.\n' >&2
     printf '  Set it to the Syncthing device ID of your hub server.\n' >&2
@@ -43,15 +55,68 @@ _get_server_device_id() {
     return 1
 }
 
-# Derive a Syncthing folder ID from an absolute repo path.
-# Strips GHQ_ROOT prefix and replaces slashes with hyphens.
-# e.g. ~/repos/github.com/lmo5/dotfiles -> github.com-lmo5-dotfiles
-_path_to_folder_id() {
-    local path="$1"
-    local rel="${path#"$GHQ_ROOT/"}"
-    # If path was not under GHQ_ROOT, strip leading slash to avoid leading hyphen
-    rel="${rel#/}"
-    printf '%s' "${rel//\//-}"
+_rel_from_path() { local rel="${1#"$GHQ_ROOT/"}"; printf '%s' "${rel#/}"; }
+_folder_id_from_rel() { printf '%s' "${1//\//-}"; }
+_path_from_rel() { printf '%s' "$GHQ_ROOT/$1"; }
+_url_from_rel() { local rel="$1"; printf 'git@%s:%s.git' "${rel%%/*}" "${rel#*/}"; }
+_rel_from_url() {
+    local url="${1%.git}"
+    case "$url" in
+        ssh://*) url="${url#ssh://}"; url="${url#*@}"; url="${url/:/\/}" ;;
+        git@*)   url="${url#git@}"; url="${url/:/\/}" ;;
+        *://*)   url="${url#*://}"; url="${url#*@}" ;;
+    esac
+    printf '%s' "$url"
+}
+
+# Legacy compat wrapper (used internally)
+_path_to_folder_id() { _folder_id_from_rel "$(_rel_from_path "$1")"; }
+
+# ---------------------------------------------------------------------------
+# Hub REST helpers
+# ---------------------------------------------------------------------------
+
+_require_hub_key() {
+    if [[ -z "${STSYNC_SERVER_APIKEY:-}" ]]; then
+        printf 'Error: STSYNC_SERVER_APIKEY is not set (needed for hub operations).\n' >&2
+        printf '  Put it in ~/.shell/.env.local (never the git-tracked ~/.shell/.env).\n' >&2
+        return 1
+    fi
+}
+_hub_curl() { # METHOD PATH [JSON]
+    local method="$1" path="$2" data="${3:-}"
+    local args=(-s --max-time 15 -H "X-API-Key: $STSYNC_SERVER_APIKEY" -X "$method")
+    [[ -n "$data" ]] && args+=(-H "Content-Type: application/json" -d "$data")
+    curl "${args[@]}" "$STSYNC_SERVER_URL$path"
+}
+_hub_code() { # METHOD PATH  -> http status only
+    curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
+        -H "X-API-Key: $STSYNC_SERVER_APIKEY" -X "$1" "$STSYNC_SERVER_URL$2"
+}
+_hub_laptop_devices() { # -> JSON array of device IDs excluding the hub
+    local hub_id; hub_id="$(_get_server_device_id)" || return 1
+    _hub_curl GET /rest/config/devices \
+      | python3 -c "import sys,json;hub='$hub_id';print(json.dumps([d['deviceID'] for d in json.load(sys.stdin) if d['deviceID']!=hub]))"
+}
+_hub_upsert_folder() { # folder_id rel
+    _require_hub_key || return 1
+    local fid="$1" rel="$2" devices payload code
+    devices="$(_hub_laptop_devices)" || return 1
+    payload=$(python3 -c "
+import json
+devs=json.loads('''$devices''')
+print(json.dumps({
+ 'id':'$fid','label':'$rel','path':'$STSYNC_SERVER_REPOS_ROOT/$rel','type':'sendreceive',
+ 'devices':[{'deviceID':d} for d in devs],'fsWatcherEnabled':True,'rescanIntervalS':3600,
+ 'versioning':{'type':'staggered','params':{'cleanInterval':'3600','maxAge':'2592000'}}}))")
+    if [[ "$(_hub_code GET "/rest/config/folders/$fid")" == "200" ]]; then
+        code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -H "X-API-Key: $STSYNC_SERVER_APIKEY" \
+               -H "Content-Type: application/json" -X PATCH -d "$payload" "$STSYNC_SERVER_URL/rest/config/folders/$fid")
+    else
+        code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -H "X-API-Key: $STSYNC_SERVER_APIKEY" \
+               -H "Content-Type: application/json" -X POST -d "$payload" "$STSYNC_SERVER_URL/rest/config/folders")
+    fi
+    [[ "$code" == "200" ]] || { printf 'Error: hub folder upsert returned HTTP %s\n' "$code" >&2; return 1; }
 }
 
 # ---------------------------------------------------------------------------
@@ -75,7 +140,7 @@ cmd_add() {
     local api_key server_device_id folder_id
     api_key="$(_get_api_key)"
     server_device_id="$(_get_server_device_id)"
-    folder_id="$(_path_to_folder_id "$abs_path")"
+    folder_id="$(_folder_id_from_rel "$(_rel_from_path "$abs_path")")"
 
     printf 'Registering "%s" as Syncthing folder "%s"...\n' "$abs_path" "$folder_id"
 
@@ -91,7 +156,7 @@ cmd_add() {
 
     # POST the folder config to the local Syncthing instance
     local payload http_code
-    payload='{"id":"'"$folder_id"'","label":"'"$folder_id"'","path":"'"$abs_path"'","type":"sendreceive","devices":[{"deviceID":"'"$server_device_id"'","introducedBy":""}],"rescanIntervalS":3600,"fsWatcherEnabled":true,"fsWatcherDelayS":10,"ignorePerms":false,"autoNormalize":true}'
+    payload='{"id":"'"$folder_id"'","label":"'"$(_rel_from_path "$abs_path")"'","path":"'"$abs_path"'","type":"sendreceive","devices":[{"deviceID":"'"$server_device_id"'","introducedBy":""}],"rescanIntervalS":3600,"fsWatcherEnabled":true,"fsWatcherDelayS":10,"ignorePerms":false,"autoNormalize":true}'
 
     http_code=$(curl -s -o /dev/null -w '%{http_code}' \
         -X POST \
@@ -107,6 +172,18 @@ cmd_add() {
         printf 'Error: Syncthing API returned HTTP %s\n' "$http_code" >&2
         printf '  Is Syncthing running? Is the API key correct?\n' >&2
         return 1
+    fi
+
+    # Mirror the folder onto the hub so every laptop can adopt it.
+    if [[ -n "${STSYNC_SERVER_APIKEY:-}" ]]; then
+        local rel; rel="$(_rel_from_path "$abs_path")"
+        if _hub_upsert_folder "$folder_id" "$rel"; then
+            printf '  Hub: folder shared with all laptops (versioning on).\n'
+        else
+            printf '  Warning: could not configure hub (folder still works locally).\n' >&2
+        fi
+    else
+        printf '  Note: STSYNC_SERVER_APIKEY unset — skipped hub sharing.\n'
     fi
 }
 
@@ -140,7 +217,7 @@ cmd_rm() {
 
     local abs_path folder_id api_key
     abs_path="$(realpath -m "$repo_path")"
-    folder_id="$(_path_to_folder_id "$abs_path")"
+    folder_id="$(_folder_id_from_rel "$(_rel_from_path "$abs_path")")"
     api_key="$(_get_api_key)"
 
     printf 'Removing Syncthing folder "%s"...\n' "$folder_id"
@@ -160,22 +237,92 @@ cmd_rm() {
     fi
 }
 
+cmd_get() {
+    local url="${1:-}"
+    [[ -n "$url" ]] || { printf 'Usage: repo-sync get <git-url>\n' >&2; return 1; }
+    local rel; rel="$(_rel_from_url "$url")"
+    printf 'Cloning %s via ghq...\n' "$url"
+    ghq get "$url" || { printf 'Error: ghq get failed for %s\n' "$url" >&2; return 1; }
+    cmd_add "$(_path_from_rel "$rel")"
+}
+
+cmd_adopt() {
+    _require_hub_key || return 1
+    local folders rel local_path
+    folders="$(_hub_curl GET /rest/config/folders \
+        | python3 -c "import sys,json;[print(f['label']) for f in json.load(sys.stdin) if f.get('label')]")"
+    [[ -n "$folders" ]] || { printf 'No labelled repo folders on the hub yet.\n'; return 0; }
+    while IFS= read -r rel; do
+        [[ -n "$rel" ]] || continue
+        local_path="$(_path_from_rel "$rel")"
+        if [[ -d "$local_path/.git" ]]; then
+            printf 'Have %s — ensuring it is registered...\n' "$rel"
+        else
+            printf 'Adopting %s ...\n' "$rel"
+            ghq get "$(_url_from_rel "$rel")" || { printf '  Warning: clone failed, skipping %s\n' "$rel" >&2; continue; }
+        fi
+        cmd_add "$local_path"
+    done <<< "$folders"
+}
+
+cmd_status() {
+    local api_key; api_key="$(_get_api_key)" || return 1
+    local ids
+    ids="$(curl -s -H "X-API-Key: $api_key" "$SYNCTHING_API/rest/config/folders" \
+        | python3 -c "import sys,json;[print(f['id']) for f in json.load(sys.stdin)]")"
+    [[ -n "$ids" ]] || { printf 'No folders registered locally.\n'; return 0; }
+    printf '%-40s %s\n' "FOLDER" "STATE"
+    while IFS= read -r id; do
+        [[ -n "$id" ]] || continue
+        local state
+        state="$(curl -s -H "X-API-Key: $api_key" "$SYNCTHING_API/rest/db/status?folder=$id" \
+            | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('state','?'),'need='+str(d.get('needTotalItems',0)))" 2>/dev/null)"
+        printf '%-40s %s\n' "$id" "$state"
+    done <<< "$ids"
+}
+
+cmd_hub_doctor() {
+    _require_hub_key || return 1
+    local want; want="$(_hub_laptop_devices)"
+    _hub_curl GET /rest/config/folders | python3 -c "
+import sys,json
+want=set(json.loads('''$want'''))
+fs=json.load(sys.stdin)
+print('hub folders:',len(fs))
+for f in fs:
+    devs=set(d['deviceID'] for d in f['devices'])
+    miss=want-devs
+    ver=f.get('versioning',{}).get('type') or 'NONE'
+    flags=[]
+    if miss: flags.append('missing-devices='+str(len(miss)))
+    if ver=='NONE': flags.append('no-versioning')
+    print(' ',f.get('label',f['id']),'OK' if not flags else 'WARN '+' '.join(flags))
+"
+}
+
 _usage() {
     cat <<'EOF'
 repo-sync — Register/unregister repos as Syncthing shared folders
 
 Usage:
   repo-sync add <repo-path>   Register a repo with the hub server
+  repo-sync get <git-url>     Clone via ghq then register with Syncthing + hub
+  repo-sync adopt             Pull all hub-known repos onto this laptop
   repo-sync list              List all synced folders (id + path)
   repo-sync rm  <repo-path>   Remove a folder from Syncthing
+  repo-sync status            Show sync state for every local folder
+  repo-sync hub-doctor        Audit hub folders (devices, versioning)
   repo-sync --help            Show this help
 
 Environment variables (all optional except STSYNC_SERVER_DEVICE_ID):
-  STSYNC_APIKEY           API key — overrides ~/.local/state/syncthing/config.xml
-  STSYNC_SERVER_DEVICE_ID Device ID of the hub server  (required; never hardcoded)
-  STSYNC_URL              Syncthing API base URL  [default: http://127.0.0.1:8384]
-  GHQ_ROOT                Root of the ghq tree    [default: ~/repos]
-  STIGNORE_TEMPLATE       Path to .stignore template
+  STSYNC_APIKEY              API key — overrides ~/.local/state/syncthing/config.xml
+  STSYNC_SERVER_DEVICE_ID    Device ID of the hub server  (required; never hardcoded)
+  STSYNC_URL                 Syncthing API base URL  [default: http://127.0.0.1:8384]
+  GHQ_ROOT                   Root of the ghq tree    [default: ~/repos]
+  STIGNORE_TEMPLATE          Path to .stignore template
+  STSYNC_SERVER_URL          Hub Syncthing URL  [default: https://sync.ayplace.xyz]
+  STSYNC_SERVER_REPOS_ROOT   Hub container repo root  [default: /var/syncthing/data]
+  STSYNC_SERVER_APIKEY       Hub API key (store in ~/.shell/.env.local, never commit)
 
 The API key is read from STSYNC_APIKEY, or parsed from
 ~/.local/state/syncthing/config.xml (created automatically when Syncthing
@@ -187,14 +334,19 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
-# Dispatch
+# Dispatch (only when executed, not when sourced for tests)
 # ---------------------------------------------------------------------------
-
-case "${1:-}" in
-    add)             shift; cmd_add  "$@" ;;
-    list)                   cmd_list      ;;
-    rm)              shift; cmd_rm   "$@" ;;
-    --help|-h|help)         _usage        ;;
-    "")                     _usage; exit 1 ;;
-    *) printf 'Unknown subcommand: %s\n\n' "$1" >&2; _usage >&2; exit 1 ;;
-esac
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    case "${1:-}" in
+        add)             shift; cmd_add    "$@" ;;
+        get)             shift; cmd_get    "$@" ;;
+        adopt)           shift; cmd_adopt  "$@" ;;
+        list)                   cmd_list        ;;
+        rm)              shift; cmd_rm     "$@" ;;
+        status)                 cmd_status      ;;
+        hub-doctor)             cmd_hub_doctor  ;;
+        --help|-h|help)         _usage          ;;
+        "")                     _usage; exit 1  ;;
+        *) printf 'Unknown subcommand: %s\n\n' "$1" >&2; _usage >&2; exit 1 ;;
+    esac
+fi
