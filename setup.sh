@@ -676,6 +676,21 @@ EODESKTOP
     success "Ente Auth (${ENTE_TAG}) installed."
 }
 
+install_keepassxc() {
+    { command_exists keepassxc || command_exists keepassxc-cli; } \
+        && { log "KeePassXC is already installed."; return; }
+    log "Installing KeePassXC..."
+    case "$PACKAGER" in
+        nala|apt|zypper|dnf|yum) pkg_install keepassxc ;;
+        pacman)  ${AUR_HELPER} --noconfirm -S keepassxc ;;
+        nix-env) ${SUDO_CMD} ${PACKAGER} -iA nixos.keepassxc ;;
+        *)       pkg_install keepassxc ;;
+    esac
+    { command_exists keepassxc || command_exists keepassxc-cli; } \
+        && success "KeePassXC installed." \
+        || error "Failed to install KeePassXC."
+}
+
 install_difftastic() {
     command_exists difft && { log "difftastic is already installed."; return; }
     log "Installing difftastic..."
@@ -1178,7 +1193,7 @@ main() {
     # May re-exec and not return (curl|bash). After this, DOTFILES_DIR is set.
     bootstrap_repo "$@"
 
-    TOTAL=21
+    TOTAL=22
     checkEnv
 
     run_step "Configuring package repositories" setup_repositories
@@ -1199,6 +1214,7 @@ main() {
     run_step "Installing ghq"                     install_ghq
     run_step "Installing Syncthing"               install_syncthing
     run_step "Installing Ente Auth"               install_ente_auth
+    run_step "Installing KeePassXC"               install_keepassxc
     run_step "Installing Kubernetes tools"        install_kubernetes_tools
     run_step "Configuring direnv"                 setup_direnv
     run_step "Optional tools"                     install_optional_tools
