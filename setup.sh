@@ -691,6 +691,16 @@ install_keepassxc() {
         || error "Failed to install KeePassXC."
 }
 
+install_urbackup() {
+    if command_exists urbackupclientctl; then
+        log "UrBackup client is already installed."
+    fi
+    if ! prompt_yn "Install & configure UrBackup backup client?" n; then
+        return 2
+    fi
+    bash "$DOTFILES_DIR/scripts/setup-urbackup-client.sh" || return 1
+}
+
 install_difftastic() {
     command_exists difft && { log "difftastic is already installed."; return; }
     log "Installing difftastic..."
@@ -988,6 +998,13 @@ setup_dotfiles() {
         ln -sf "$DOTFILES_DIR/scripts/repo-sync" "$HOME/.local/bin/repo-sync"
         log "repo-sync linked to ~/.local/bin/repo-sync"
     fi
+
+    if [ -f "$DOTFILES_DIR/scripts/setup-urbackup-client.sh" ]; then
+        mkdir -p "$HOME/.local/bin"
+        chmod +x "$DOTFILES_DIR/scripts/setup-urbackup-client.sh"
+        ln -sf "$DOTFILES_DIR/scripts/setup-urbackup-client.sh" "$HOME/.local/bin/setup-urbackup-client"
+        log "setup-urbackup-client linked to ~/.local/bin/setup-urbackup-client"
+    fi
 }
 
 # Maintain ~/.shell/.exports.local — the gitignored file holding real secret
@@ -1193,7 +1210,7 @@ main() {
     # May re-exec and not return (curl|bash). After this, DOTFILES_DIR is set.
     bootstrap_repo "$@"
 
-    TOTAL=22
+    TOTAL=23
     checkEnv
 
     run_step "Configuring package repositories" setup_repositories
@@ -1215,6 +1232,7 @@ main() {
     run_step "Installing Syncthing"               install_syncthing
     run_step "Installing Ente Auth"               install_ente_auth
     run_step "Installing KeePassXC"               install_keepassxc
+    run_step "Installing UrBackup client"         install_urbackup
     run_step "Installing Kubernetes tools"        install_kubernetes_tools
     run_step "Configuring direnv"                 setup_direnv
     run_step "Optional tools"                     install_optional_tools

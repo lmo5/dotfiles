@@ -8,3 +8,5 @@
 
 export CONFLUENCE_MCP_TOKEN=""
 export JIRA_MCP_TOKEN=""
+export URBACKUP_SERVER="backup.ayplace.xyz"
+export URBACKUP_AUTHKEY=""
