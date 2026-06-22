@@ -626,6 +626,15 @@ https://apt.syncthing.net/ syncthing stable" \
     success "Syncthing installed. Web UI: http://127.0.0.1:8384"
 }
 
+setup_syncthing_laptop() {
+    local script="$DOTFILES_DIR/syncthing/setup-syncthing.sh"
+    if [ ! -f "$script" ]; then
+        log "syncthing/setup-syncthing.sh not found — skipping."
+        return
+    fi
+    bash "$script"
+}
+
 install_ente_auth() {
     { command_exists enteauth || command_exists ente-auth; } && { log "Ente Auth is already installed."; return; }
     [ -f "$HOME/.local/bin/ente-auth.AppImage" ] && { log "Ente Auth is already installed."; return; }
@@ -1230,6 +1239,7 @@ main() {
     run_step "Installing Claude Code"             install_claude
     run_step "Installing ghq"                     install_ghq
     run_step "Installing Syncthing"               install_syncthing
+    run_step "Setting up Syncthing (pair with server)" setup_syncthing_laptop
     run_step "Installing Ente Auth"               install_ente_auth
     run_step "Installing KeePassXC"               install_keepassxc
     run_step "Installing UrBackup client"         install_urbackup
