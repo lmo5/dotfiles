@@ -15,6 +15,18 @@ log() { echo -e "${2:-$YELLOW}$1${RC}"; }
 error() { log "$1" "$RED" >&2; exit 1; }
 success() { log "$1" "$GREEN"; }
 
+# ---------------------------------------------------------------------------
+# Refuse to run as root.
+# This installer sets up a *user's* dotfiles and home directory; it escalates
+# with sudo only for the few steps that genuinely need it. Running the whole
+# thing as root creates root-owned files in $HOME and installs tools (e.g. npm
+# globals) into root-owned locations, which breaks things like auto-updates.
+# Set DOTFILES_ALLOW_ROOT=1 to override (e.g. inside a root-only container).
+# ---------------------------------------------------------------------------
+if [ "$(id -u)" -eq 0 ] && [ -z "${DOTFILES_ALLOW_ROOT:-}" ]; then
+    error "Refusing to run as root. Run this installer as your normal user (it uses sudo itself when needed). Set DOTFILES_ALLOW_ROOT=1 to override."
+fi
+
 
 setup_locales() {
     log "Setting up locales..."

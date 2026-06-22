@@ -14,6 +14,22 @@ declare -r GREEN='\033[32m'
 declare -r BLUE='\033[34m'
 declare -r BOLD='\033[1m'
 
+# ---------------------------------------------------------------------------
+# Refuse to run as root.
+# This installer sets up a *user's* dotfiles and home directory; it escalates
+# with sudo only for the few steps that genuinely need it. Running the whole
+# thing as root creates root-owned files in $HOME and installs tools (e.g. npm
+# globals) into root-owned locations, which breaks things like auto-updates.
+# Set DOTFILES_ALLOW_ROOT=1 to override (e.g. inside a root-only container).
+# ---------------------------------------------------------------------------
+if [ "$(id -u)" -eq 0 ] && [ -z "${DOTFILES_ALLOW_ROOT:-}" ]; then
+    printf '%b\n' "${RED}${BOLD}Refusing to run as root.${RC}" >&2
+    printf '%b\n' "${YELLOW}Run this installer as your normal user — it calls sudo itself when needed:${RC}" >&2
+    printf '%b\n' "${YELLOW}    ./setup.sh          ${RED}# not  sudo ./setup.sh${RC}" >&2
+    printf '%b\n' "${YELLOW}If you really must run as root (e.g. a root-only container), set DOTFILES_ALLOW_ROOT=1.${RC}" >&2
+    exit 1
+fi
+
 # Where the dotfiles repo lives / will be cloned to (override with DOTFILES_DIR env)
 REPO_URL="https://github.com/lmo5/dotfiles.git"
 CLONE_DIR="${DOTFILES_DIR:-$HOME/.dotfiles}"
