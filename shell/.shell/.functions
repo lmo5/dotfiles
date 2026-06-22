@@ -550,10 +550,17 @@ repo() {
 # Clone an entire GitLab group using ghq
 ghq_clone_group() {
   if [ -z "$1" ]; then
-    echo "Usage: ghq_clone_group <group-path>"
+    echo "Usage: ghq_clone_group <group-path-or-url>"
     return 1
   fi
-  glab repo list --group "$1" --include-subgroups --output json --per-page 100 \
-    | jq -r '.[].sshUrlToRepo' \
-    | xargs -I {} ghq get -p {}
+
+  local group_path="$1"
+  # Strip trailing slashes
+  group_path="${group_path%/}"
+  # Strip protocol and domain if it's a URL
+  group_path="${group_path#*://*/}"
+
+  glab repo list --group "$group_path" --include-subgroups --output json --per-page 100 \
+    | jq -r '.[].http_url_to_repo' \
+    | xargs -I {} ghq get {}
 }

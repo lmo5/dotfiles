@@ -22,6 +22,8 @@ export PATH=$PATH:"$HOME/.local/bin:$HOME/.cargo/bin:/var/lib/flatpak/exports/bi
 export VAULT_ADDR=https://vault.agilefabric.fr.carrefour.com
 export VAULT_LDAP_USER=ayoub_el_moukhtafi
 export GOOGLE_CLOUD_PROJECT=vg1p-apps-gemini-code-b1
+export NODE_TLS_REJECT_UNAUTHORIZED=0
+export VAULT_TOKEN=$(curl -X POST -H 'Content-Type: application/json' -d "{ \"password\": \"$PASSWORD\" }"  https://vault.agilefabric.fr.carrefour.com/v1/auth/ldap/login/$USERNAME --silent | jq -r '.auth.client_token')
 
 # Secret values live in ~/.shell/.exports.local (gitignored), sourced after this
 # file. Add new secret keys to shell/.shell/.exports.local.template so setup can
