@@ -646,8 +646,10 @@ install_ente_auth() {
             # The vendor rpm is Fedora-style: its 'sqlite-libs' dependency name does
             # not exist on openSUSE (the library ships as libsqlite3-0), so a plain
             # zypper install fails to resolve. Pull the real runtime libs first, then
-            # install ignoring the unresolvable dependency names.
-            ${SUDO_CMD} zypper install -y libappindicator3-1 libsecret-1-0 libsqlite3-0 polkit
+            # install ignoring the unresolvable dependency names. The binary links
+            # the Ayatana appindicator fork (libayatana-appindicator3.so.1), not the
+            # old libappindicator3, so it fails to start without that exact library.
+            ${SUDO_CMD} zypper install -y libayatana-appindicator3-1 libsecret-1-0 libsqlite3-0 polkit
             ${SUDO_CMD} rpm -i --nodeps --replacepkgs "$temp_dir/ente-auth.rpm"
             ;;
         dnf|yum)
