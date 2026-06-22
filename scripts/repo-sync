@@ -215,9 +215,10 @@ cmd_rm() {
         return 1
     fi
 
-    local abs_path folder_id api_key
+    local abs_path folder_id api_key rel
     abs_path="$(realpath -m "$repo_path")"
-    folder_id="$(_folder_id_from_rel "$(_rel_from_path "$abs_path")")"
+    rel="$(_rel_from_path "$abs_path")"
+    folder_id="$(_folder_id_from_rel "$rel")"
     api_key="$(_get_api_key)"
 
     printf 'Removing Syncthing folder "%s"...\n' "$folder_id"
@@ -229,11 +230,22 @@ cmd_rm() {
         "$SYNCTHING_API/rest/config/folders/$folder_id")
 
     if [[ "$http_code" == "200" ]]; then
-        printf '  Folder "%s" removed. Local files are unchanged.\n' "$folder_id"
+        printf '  Local: folder "%s" removed. Local files are unchanged.\n' "$folder_id"
     else
-        printf 'Error: Syncthing API returned HTTP %s\n' "$http_code" >&2
+        printf 'Error: Local Syncthing API returned HTTP %s\n' "$http_code" >&2
         printf '  The folder may not exist or the API key may be wrong.\n' >&2
         return 1
+    fi
+
+    if [[ -n "${STSYNC_SERVER_APIKEY:-}" ]]; then
+        http_code=$(_hub_code DELETE "/rest/config/folders/$folder_id")
+        if [[ "$http_code" == "200" ]]; then
+            printf '  Hub: folder "%s" removed — other laptops will stop syncing it.\n' "$folder_id"
+        else
+            printf '  Warning: hub returned HTTP %s — remove manually if needed.\n' "$http_code" >&2
+        fi
+    else
+        printf '  Note: STSYNC_SERVER_APIKEY unset — folder removed locally only.\n'
     fi
 }
 
@@ -255,11 +267,11 @@ cmd_adopt() {
     while IFS= read -r rel; do
         [[ -n "$rel" ]] || continue
         local_path="$(_path_from_rel "$rel")"
-        if [[ -d "$local_path/.git" ]]; then
+        if [[ -d "$local_path" ]]; then
             printf 'Have %s — ensuring it is registered...\n' "$rel"
         else
-            printf 'Adopting %s ...\n' "$rel"
-            ghq get "$(_url_from_rel "$rel")" || { printf '  Warning: clone failed, skipping %s\n' "$rel" >&2; continue; }
+            printf 'Adopting %s — Syncthing will pull it from the hub...\n' "$rel"
+            mkdir -p "$local_path"
         fi
         cmd_add "$local_path"
     done <<< "$folders"
@@ -300,12 +312,27 @@ for f in fs:
 "
 }
 
+cmd_add_all() {
+    local count=0 fail=0
+    while IFS= read -r git_dir; do
+        local repo_path="${git_dir%/.git}"
+        printf '[%s] ' "$(_rel_from_path "$repo_path")"
+        if cmd_add "$repo_path"; then
+            (( count++ ))
+        else
+            (( fail++ ))
+        fi
+    done < <(find "$GHQ_ROOT" -name ".git" -type d 2>/dev/null | sort)
+    printf '\nDone: %d registered, %d failed.\n' "$count" "$fail"
+}
+
 _usage() {
     cat <<'EOF'
 repo-sync — Register/unregister repos as Syncthing shared folders
 
 Usage:
   repo-sync add <repo-path>   Register a repo with the hub server
+  repo-sync add-all           Register all repos under GHQ_ROOT
   repo-sync get <git-url>     Clone via ghq then register with Syncthing + hub
   repo-sync adopt             Pull all hub-known repos onto this laptop
   repo-sync list              List all synced folders (id + path)
@@ -339,6 +366,7 @@ EOF
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     case "${1:-}" in
         add)             shift; cmd_add    "$@" ;;
+        add-all)                cmd_add_all     ;;
         get)             shift; cmd_get    "$@" ;;
         adopt)           shift; cmd_adopt  "$@" ;;
         list)                   cmd_list        ;;
