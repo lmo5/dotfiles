@@ -63,24 +63,59 @@ get_api_key() {
 }
 
 # ── 4. Fetch the server's Device ID ──────────────────────────────────────────
+# Resolution order:
+#   1. STSYNC_SERVER_DEVICE_ID env var (if already exported)
+#   2. STSYNC_SERVER_DEVICE_ID persisted in $SHELL_ENV (this script runs in a
+#      fresh shell that does not source .env, so read it directly)
+#   3. Query the server REST API — but /rest/system/status requires the server's
+#      API key, so this only works when STSYNC_SERVER_APIKEY is provided
+#   4. Prompt the user (only when running interactively)
 fetch_server_device_id() {
+    local device_id
+
     if [[ -n "${STSYNC_SERVER_DEVICE_ID:-}" ]]; then
         printf '%s' "$STSYNC_SERVER_DEVICE_ID"
         return
     fi
-    log "Fetching server Device ID from $SYNCTHING_SERVER_URL ..."
-    local status device_id
-    if status=$(curl -sf --max-time 10 "$SYNCTHING_SERVER_URL/rest/system/status" 2>/dev/null); then
-        device_id=$(printf '%s' "$status" | python3 -c "import sys,json; print(json.load(sys.stdin)['myID'])" 2>/dev/null) \
-            || error "Failed to parse device ID from server response."
-        [[ -n "$device_id" ]] || error "Server returned an empty device ID."
-        printf '%s' "$device_id"
+
+    if [[ -f "$SHELL_ENV" ]]; then
+        device_id=$(sed -n 's|^export STSYNC_SERVER_DEVICE_ID="\{0,1\}\([^"]*\)"\{0,1\}.*|\1|p' "$SHELL_ENV" | head -n1)
+        if [[ -n "$device_id" ]]; then
+            log "Using server Device ID from $SHELL_ENV"
+            printf '%s' "$device_id"
+            return
+        fi
+    fi
+
+    if [[ -n "${STSYNC_SERVER_APIKEY:-}" ]]; then
+        log "Fetching server Device ID from $SYNCTHING_SERVER_URL ..."
+        local status http_code body
+        body=$(curl -s --max-time 10 -w '\n%{http_code}' \
+            -H "X-API-Key: $STSYNC_SERVER_APIKEY" \
+            "$SYNCTHING_SERVER_URL/rest/system/status" 2>/dev/null) || true
+        http_code="${body##*$'\n'}"
+        status="${body%$'\n'*}"
+        if [[ "$http_code" == "200" ]]; then
+            device_id=$(printf '%s' "$status" | python3 -c "import sys,json; print(json.load(sys.stdin)['myID'])" 2>/dev/null) \
+                || error "Failed to parse device ID from server response."
+            [[ -n "$device_id" ]] || error "Server returned an empty device ID."
+            printf '%s' "$device_id"
+            return
+        fi
+        log "Server REST API returned HTTP ${http_code:-no response} — check STSYNC_SERVER_APIKEY / $SYNCTHING_SERVER_URL."
     else
-        log "Cannot reach $SYNCTHING_SERVER_URL — falling back to manual input."
+        log "No STSYNC_SERVER_DEVICE_ID found and no STSYNC_SERVER_APIKEY set."
+        log "(The server's /rest/system/status requires its API key — it is not publicly readable.)"
+    fi
+
+    # Fall back to manual input, but only if we have a terminal to read from.
+    if [[ -t 0 ]]; then
         printf 'Enter the server Device ID: ' >&2
         read -r device_id
         [[ -n "$device_id" ]] || error "No device ID provided."
         printf '%s' "$device_id"
+    else
+        error "Cannot determine server Device ID non-interactively. Set STSYNC_SERVER_DEVICE_ID (e.g. in $SHELL_ENV) or STSYNC_SERVER_APIKEY and re-run."
     fi
 }
 
