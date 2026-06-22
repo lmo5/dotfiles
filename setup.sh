@@ -626,6 +626,49 @@ https://apt.syncthing.net/ syncthing stable" \
     success "Syncthing installed. Web UI: http://127.0.0.1:8384"
 }
 
+install_ente_auth() {
+    command_exists ente-auth && { log "Ente Auth is already installed."; return; }
+    [ -f "$HOME/.local/bin/ente-auth.AppImage" ] && { log "Ente Auth is already installed."; return; }
+    log "Installing Ente Auth..."
+    local ENTE_TAG temp_dir base_url
+    ENTE_TAG=$(curl -s "https://api.github.com/repos/ente-io/ente/releases?per_page=100" \
+        | grep '"tag_name"' | grep -m1 'auth-v4' | cut -d'"' -f4)
+    [ -z "$ENTE_TAG" ] && { log "Could not resolve an Ente Auth (auth-v4) release; skipping."; return; }
+    base_url="https://github.com/ente-io/ente/releases/download/${ENTE_TAG}"
+    temp_dir=$(mktemp -d)
+    case "$PACKAGER" in
+        nala|apt)
+            curl -sL "${base_url}/ente-auth-${ENTE_TAG}-x86_64.deb" -o "$temp_dir/ente-auth.deb"
+            ${SUDO_CMD} DEBIAN_FRONTEND=noninteractive ${PACKAGER} install -y "$temp_dir/ente-auth.deb"
+            ;;
+        zypper)
+            curl -sL "${base_url}/ente-auth-${ENTE_TAG}-x86_64.rpm" -o "$temp_dir/ente-auth.rpm"
+            ${SUDO_CMD} zypper install -y --allow-unsigned-rpm "$temp_dir/ente-auth.rpm"
+            ;;
+        dnf|yum)
+            curl -sL "${base_url}/ente-auth-${ENTE_TAG}-x86_64.rpm" -o "$temp_dir/ente-auth.rpm"
+            ${SUDO_CMD} ${PACKAGER} install -y "$temp_dir/ente-auth.rpm"
+            ;;
+        *)
+            curl -sL "${base_url}/ente-auth-${ENTE_TAG}-x86_64.AppImage" -o "$temp_dir/ente-auth.AppImage"
+            install -Dm755 "$temp_dir/ente-auth.AppImage" "$HOME/.local/bin/ente-auth.AppImage"
+            ln -sf "$HOME/.local/bin/ente-auth.AppImage" "$HOME/.local/bin/ente-auth"
+            mkdir -p "$HOME/.local/share/applications"
+            cat > "$HOME/.local/share/applications/ente-auth.desktop" <<EODESKTOP
+[Desktop Entry]
+Type=Application
+Name=Ente Auth
+Exec=$HOME/.local/bin/ente-auth.AppImage
+Icon=ente-auth
+Categories=Utility;Security;
+Terminal=false
+EODESKTOP
+            ;;
+    esac
+    rm -rf "$temp_dir"
+    success "Ente Auth (${ENTE_TAG}) installed."
+}
+
 install_difftastic() {
     command_exists difft && { log "difftastic is already installed."; return; }
     log "Installing difftastic..."
@@ -1128,7 +1171,7 @@ main() {
     # May re-exec and not return (curl|bash). After this, DOTFILES_DIR is set.
     bootstrap_repo "$@"
 
-    TOTAL=20
+    TOTAL=21
     checkEnv
 
     run_step "Configuring package repositories" setup_repositories
@@ -1148,6 +1191,7 @@ main() {
     run_step "Installing Claude Code"             install_claude
     run_step "Installing ghq"                     install_ghq
     run_step "Installing Syncthing"               install_syncthing
+    run_step "Installing Ente Auth"               install_ente_auth
     run_step "Installing Kubernetes tools"        install_kubernetes_tools
     run_step "Configuring direnv"                 setup_direnv
     run_step "Optional tools"                     install_optional_tools
