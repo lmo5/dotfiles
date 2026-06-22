@@ -627,7 +627,7 @@ https://apt.syncthing.net/ syncthing stable" \
 }
 
 install_ente_auth() {
-    command_exists ente-auth && { log "Ente Auth is already installed."; return; }
+    { command_exists enteauth || command_exists ente-auth; } && { log "Ente Auth is already installed."; return; }
     [ -f "$HOME/.local/bin/ente-auth.AppImage" ] && { log "Ente Auth is already installed."; return; }
     log "Installing Ente Auth..."
     local ENTE_TAG temp_dir base_url
@@ -643,7 +643,12 @@ install_ente_auth() {
             ;;
         zypper)
             curl -fsSL "${base_url}/ente-${ENTE_TAG}-x86_64.rpm" -o "$temp_dir/ente-auth.rpm"
-            ${SUDO_CMD} zypper install -y --allow-unsigned-rpm "$temp_dir/ente-auth.rpm"
+            # The vendor rpm is Fedora-style: its 'sqlite-libs' dependency name does
+            # not exist on openSUSE (the library ships as libsqlite3-0), so a plain
+            # zypper install fails to resolve. Pull the real runtime libs first, then
+            # install ignoring the unresolvable dependency names.
+            ${SUDO_CMD} zypper install -y libappindicator3-1 libsecret-1-0 libsqlite3-0 polkit
+            ${SUDO_CMD} rpm -i --nodeps --replacepkgs "$temp_dir/ente-auth.rpm"
             ;;
         dnf|yum)
             curl -fsSL "${base_url}/ente-${ENTE_TAG}-x86_64.rpm" -o "$temp_dir/ente-auth.rpm"
