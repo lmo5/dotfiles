@@ -10,10 +10,10 @@
     "pr": ""
   },
   "includeCoAuthoredBy": false,
-  "model": "sonnet",
   "permissions": {
     "defaultMode": "auto"
   },
+  "model": "opus",
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline-command.sh",
@@ -49,7 +49,7 @@
   "advisorModel": "opus",
   "autoUpdatesChannel": "latest",
   "skipDangerousModePermissionPrompt": true,
-  "theme": "auto",
+  "theme": "dark",
   "verbose": false,
   "autoCompactPercent": 70,
   "disableTelemetry": true

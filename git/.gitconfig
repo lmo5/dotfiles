@@ -88,3 +88,7 @@
 	helper = !/usr/bin/glab auth git-credential
 [ghq]
     root = ~/repos
+[safe]
+	directory = /mnt/data/
+	directory = /mnt/data/private/home-server/local-apps
+	directory = /mnt/data/private/home-server/homelab-infrastructure
