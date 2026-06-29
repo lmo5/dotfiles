@@ -82,11 +82,42 @@ rate_limit_str=""
 rate_limit_str="${rate_limit_str}$(format_rl "$rl_5h_pct" "$rl_5h_reset" "5h")"
 # rate_limit_str="${rate_limit_str}$(format_rl "$rl_7d_pct" "$rl_7d_reset" "7d")"
 
+# caveman mode badge — merged from the caveman plugin statusline.
+# Reads the plugin's flag file directly (hardened: no symlinks, capped, whitelisted)
+# so it stays stable across plugin version bumps. Disable with CAVEMAN_STATUSLINE=0.
+caveman_str=""
+if [ "${CAVEMAN_STATUSLINE:-1}" != "0" ]; then
+  cm_flag="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.caveman-active"
+  if [ -f "$cm_flag" ] && [ ! -L "$cm_flag" ]; then
+    cm_mode=$(head -c 64 "$cm_flag" 2>/dev/null | tr -d '\n\r' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-')
+    ORANGE='\033[38;5;172m'
+    case "$cm_mode" in
+      full)
+        caveman_str=$(printf "${ORANGE}🗿${RESET}") ;;
+      lite|ultra|wenyan-lite|wenyan|wenyan-full|wenyan-ultra|commit|review|compress)
+        cm_suffix=$(printf '%s' "$cm_mode" | tr '[:lower:]' '[:upper:]')
+        caveman_str=$(printf "${ORANGE}🗿%s${RESET}" "$cm_suffix") ;;
+      *) ;;
+    esac
+    # Lifetime-savings suffix (e.g. ⛏ 12.4k), written by /caveman-stats. Opt out: CAVEMAN_STATUSLINE_SAVINGS=0.
+    if [ -n "$caveman_str" ] && [ "${CAVEMAN_STATUSLINE_SAVINGS:-1}" != "0" ]; then
+      cm_sav_file="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.caveman-statusline-suffix"
+      if [ -f "$cm_sav_file" ] && [ ! -L "$cm_sav_file" ]; then
+        cm_sav=$(head -c 64 "$cm_sav_file" 2>/dev/null | tr -d '\000-\037')
+        [ -n "$cm_sav" ] && caveman_str="${caveman_str} $(printf "${ORANGE}%s${RESET}" "$cm_sav")"
+      fi
+    fi
+  fi
+fi
+cm_part=""
+# Prefix (front of bar) so the badge is never truncated off a narrow terminal.
+[ -n "$caveman_str" ] && cm_part="${caveman_str} | "
+
 repo_root=$(cd "$current_dir" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || echo "$current_dir")
 dir_display=$(basename "$repo_root")
 
 if [ -n "$effort" ]; then
-  printf "🤖 %s | 💪 %s | 🧠 %s | 💰 %s | ⏱️ %s\n📁 %s | 🌳 %s | 🌿 %s" "$model" "$effort" "$usage_str" "$block_str" "$rate_limit_str" "$dir_display" "$worktree_str" "$git_str"
+  printf "%s🤖 %s | 💪 %s | 🧠 %s | 💰 %s | ⏱️ %s\n📁 %s | 🌳 %s | 🌿 %s" "$cm_part" "$model" "$effort" "$usage_str" "$block_str" "$rate_limit_str" "$dir_display" "$worktree_str" "$git_str"
 else
-  printf "🤖 %s | 🧠 %s | 💰 %s | ⏱️ %s\n📁 %s | 🌳 %s | 🌿 %s" "$model" "$usage_str" "$block_str" "$rate_limit_str" "$dir_display" "$worktree_str" "$git_str"
+  printf "%s🤖 %s | 🧠 %s | 💰 %s | ⏱️ %s\n📁 %s | 🌳 %s | 🌿 %s" "$cm_part" "$model" "$usage_str" "$block_str" "$rate_limit_str" "$dir_display" "$worktree_str" "$git_str"
 fi

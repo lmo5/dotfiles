@@ -732,6 +732,8 @@ install_optional_tools() {
     prompt_yn "Install glab (GitLab CLI)?" n && install_glab=y
     prompt_yn "Install ghorg?"           n && install_ghorg
     prompt_yn "Install difftastic?"      n && install_difftastic
+    prompt_yn "Set up AI CLI stack (Gemini delegation + 9router + pi + Headroom)?" n \
+        && bash "$(dirname "${BASH_SOURCE[0]}")/scripts/setup-ai-stack.sh"
 
     if [[ $install_terragrunt =~ ^[Yy]$ ]]; then
         log "Installing Terragrunt..."
