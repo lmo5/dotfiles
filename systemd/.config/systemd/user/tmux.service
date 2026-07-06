@@ -7,9 +7,13 @@ After=graphical-session.target
 Type=forking
 # Start a detached server; tmux-continuum's @continuum-restore restores the
 # last auto-saved environment (layout + panes + processes) on server start.
+# Guard against a stale server (avoids "duplicate session" on restart)
+ExecStartPre=-/usr/bin/tmux kill-server
 ExecStart=/usr/bin/tmux new-session -d -s main
 ExecStop=/usr/bin/tmux kill-server
-KillMode=none
+# control-group (default) cleanly reaps the server on stop; KillMode=none was
+# deprecated and left orphan servers that broke restart.
+KillMode=control-group
 Restart=on-failure
 RestartSec=2
 
