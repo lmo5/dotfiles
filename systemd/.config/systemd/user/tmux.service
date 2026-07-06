@@ -1,0 +1,17 @@
+[Unit]
+Description=tmux default session (auto-start for tmux-continuum)
+Documentation=https://github.com/tmux-plugins/tmux-continuum
+After=graphical-session.target
+
+[Service]
+Type=forking
+# Start a detached server; tmux-continuum's @continuum-restore restores the
+# last auto-saved environment (layout + panes + processes) on server start.
+ExecStart=/usr/bin/tmux new-session -d -s main
+ExecStop=/usr/bin/tmux kill-server
+KillMode=none
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
