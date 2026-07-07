@@ -13,7 +13,7 @@
   "permissions": {
     "defaultMode": "auto"
   },
-  "model": "opus",
+  "model": "claude-fable-5[1m]",
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline-command.sh",
@@ -23,7 +23,13 @@
     "data@knowledge-work-plugins": false,
     "superpowers@claude-plugins-official": true,
     "code-review@claude-plugins-official": false,
-    "clangd-lsp@claude-plugins-official": true
+    "clangd-lsp@claude-plugins-official": true,
+    "caveman@caveman": true,
+    "impeccable@impeccable": true,
+    "ponytail@ponytail": true,
+    "codex@openai-codex": true,
+    "obsidian@obsidian-skills": true,
+    "example-skills@anthropic-agent-skills": true
   },
   "extraKnownMarketplaces": {
     "knowledge-work-plugins": {
@@ -43,6 +49,48 @@
         "source": "git",
         "url": "https://github.com/anthropics/claude-plugins-official.git"
       }
+    },
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "JuliusBrussee/caveman"
+      }
+    },
+    "impeccable": {
+      "source": {
+        "source": "github",
+        "repo": "pbakaus/impeccable"
+      }
+    },
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    },
+    "openai-codex": {
+      "source": {
+        "source": "github",
+        "repo": "openai/codex-plugin-cc"
+      }
+    },
+    "last30days-skill": {
+      "source": {
+        "source": "github",
+        "repo": "mvanhorn/last30days-skill"
+      }
+    },
+    "obsidian-skills": {
+      "source": {
+        "source": "github",
+        "repo": "kepano/obsidian-skills"
+      }
+    },
+    "anthropic-agent-skills": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/skills"
+      }
     }
   },
   "effortLevel": "medium",
@@ -52,5 +100,6 @@
   "theme": "dark",
   "verbose": false,
   "autoCompactPercent": 70,
-  "disableTelemetry": true
+  "disableTelemetry": true,
+  "hasCompletedOnboarding": true
 }
