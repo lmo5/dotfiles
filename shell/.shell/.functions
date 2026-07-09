@@ -100,12 +100,8 @@ cd ()
 {
 	if [ -n "$1" ]; then
 		builtin cd "$@" && ls
-        auto_git_update
-        auto_git_update
 	else
 		builtin cd ~ && ls
-        auto_git_update
-        auto_git_update
 	fi
 }
 
