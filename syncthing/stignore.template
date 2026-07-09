@@ -1,22 +1,79 @@
-// Syncthing ignore template for code repositories
-// Apply with: cp stignore.template <repo>/.stignore
+// Syncthing ignore template for syncing ~/repos as a single folder
 // IMPORTANT: .git is intentionally NOT listed — Syncthing must sync it
 //            so the full repo state (branches, stashes, index) moves between laptops.
 
-// Dependency caches / build artefacts — regenerable, often huge
-node_modules
-target
-dist
-build
-.venv
-__pycache__
-.next
-
-// Log files
-*.log
-
-// Transient git lock files — never sync (cause spurious locks / churn).
-// .git itself IS still synced; only these volatile lock files are excluded.
+// ── Transient git lock files ────────────────────────────────────────────────
+// .git itself IS still synced; only volatile lock files are excluded.
 (?d).git/index.lock
 (?d).git/*.lock
 (?d).git/**/*.lock
+
+// ── Dependency caches ───────────────────────────────────────────────────────
+node_modules
+.pnpm-store
+bower_components
+vendor/bundle
+.bundle
+
+// ── Build artefacts & output ────────────────────────────────────────────────
+target
+dist
+build
+out
+_build
+.output
+.next
+.nuxt
+.svelte-kit
+.parcel-cache
+.turbo
+.angular
+.gradle
+*.egg-info
+*.whl
+*.pyc
+*.pyo
+*.o
+*.a
+*.so
+*.dylib
+*.class
+*.jar
+
+// ── Virtual environments & tool caches ──────────────────────────────────────
+.venv
+venv
+env
+__pycache__
+.tox
+.nox
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+.phpunit.cache
+
+// ── IDE / editor state (machine-specific) ───────────────────────────────────
+.idea
+*.iml
+.vscode/*.log
+*.swp
+*.swo
+*~
+
+// ── OS junk ─────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+// ── Container & infra temporaries ───────────────────────────────────────────
+.terraform
+*.tfstate*.backup
+.vagrant
+
+// ── Log & temp files ────────────────────────────────────────────────────────
+*.log
+*.tmp
+*.temp
+.cache

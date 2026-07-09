@@ -312,6 +312,108 @@ for f in fs:
 "
 }
 
+cmd_init() {
+    local api_key server_device_id folder_id="repos"
+    api_key="$(_get_api_key)"
+    server_device_id="$(_get_server_device_id)"
+
+    printf 'Registering "%s" as a single Syncthing folder "%s"...\n' "$GHQ_ROOT" "$folder_id"
+
+    # Apply .stignore template
+    local template
+    template="$(realpath -m "$STIGNORE_TEMPLATE")"
+    if [[ -f "$template" ]]; then
+        cp "$template" "$GHQ_ROOT/.stignore"
+        printf '  Applied .stignore from %s\n' "$template"
+    else
+        printf '  Warning: stignore template not found at %s — skipping\n' "$template" >&2
+    fi
+
+    local payload http_code
+    payload='{"id":"'"$folder_id"'","label":"repos","path":"'"$GHQ_ROOT"'","type":"sendreceive","devices":[{"deviceID":"'"$server_device_id"'","introducedBy":""}],"rescanIntervalS":3600,"fsWatcherEnabled":true,"fsWatcherDelayS":10,"ignorePerms":false,"autoNormalize":true}'
+
+    http_code=$(curl -s -o /dev/null -w '%{http_code}' \
+        -X POST \
+        -H "X-API-Key: $api_key" \
+        -H "Content-Type: application/json" \
+        -d "$payload" \
+        "$SYNCTHING_API/rest/config/folders")
+
+    if [[ "$http_code" == "200" ]]; then
+        printf '  Done. Syncthing will begin syncing "%s" as folder "%s".\n' "$GHQ_ROOT" "$folder_id"
+    else
+        printf 'Error: Syncthing API returned HTTP %s (folder may already exist — use "repo-sync list" to check)\n' "$http_code" >&2
+        return 1
+    fi
+
+    # Mirror onto hub
+    if [[ -n "${STSYNC_SERVER_APIKEY:-}" ]]; then
+        _require_hub_key || return 1
+        local devices hub_payload
+        devices="$(_hub_laptop_devices)" || return 1
+        hub_payload=$(python3 -c "
+import json
+devs=json.loads('''$devices''')
+print(json.dumps({
+ 'id':'$folder_id','label':'repos','path':'$STSYNC_SERVER_REPOS_ROOT','type':'sendreceive',
+ 'devices':[{'deviceID':d} for d in devs],'fsWatcherEnabled':True,'rescanIntervalS':3600,
+ 'versioning':{'type':'staggered','params':{'cleanInterval':'3600','maxAge':'2592000'}}}))")
+        local code
+        if [[ "$(_hub_code GET "/rest/config/folders/$folder_id")" == "200" ]]; then
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -H "X-API-Key: $STSYNC_SERVER_APIKEY" \
+                   -H "Content-Type: application/json" -X PATCH -d "$hub_payload" "$STSYNC_SERVER_URL/rest/config/folders/$folder_id")
+        else
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -H "X-API-Key: $STSYNC_SERVER_APIKEY" \
+                   -H "Content-Type: application/json" -X POST -d "$hub_payload" "$STSYNC_SERVER_URL/rest/config/folders")
+        fi
+        if [[ "$code" == "200" ]]; then
+            printf '  Hub: root folder shared with all laptops (versioning on).\n'
+        else
+            printf '  Warning: hub returned HTTP %s — configure manually if needed.\n' "$code" >&2
+        fi
+    else
+        printf '  Note: STSYNC_SERVER_APIKEY unset — skipped hub sharing.\n'
+    fi
+}
+
+cmd_rm_all() {
+    local api_key
+    api_key="$(_get_api_key)"
+
+    local ids
+    ids="$(curl -s -H "X-API-Key: $api_key" "$SYNCTHING_API/rest/config/folders" \
+        | python3 -c "import sys,json;[print(f['id']) for f in json.load(sys.stdin)]")"
+
+    if [[ -z "$ids" ]]; then
+        printf 'No folders registered locally.\n'
+        return 0
+    fi
+
+    local count=0
+    while IFS= read -r id; do
+        [[ -n "$id" ]] || continue
+        printf 'Removing "%s"...' "$id"
+        local http_code
+        http_code=$(curl -s -o /dev/null -w '%{http_code}' \
+            -X DELETE \
+            -H "X-API-Key: $api_key" \
+            "$SYNCTHING_API/rest/config/folders/$id")
+        if [[ "$http_code" == "200" ]]; then
+            printf ' done.\n'
+            (( ++count ))
+        else
+            printf ' HTTP %s (skipped).\n' "$http_code"
+        fi
+
+        # Also remove from hub if possible
+        if [[ -n "${STSYNC_SERVER_APIKEY:-}" ]]; then
+            _hub_code DELETE "/rest/config/folders/$id" >/dev/null 2>&1 || true
+        fi
+    done <<< "$ids"
+
+    printf 'Removed %d folder(s). Local files are unchanged.\n' "$count"
+}
+
 cmd_add_all() {
     local count=0 fail=0
     while IFS= read -r git_dir; do
@@ -331,8 +433,10 @@ _usage() {
 repo-sync — Register/unregister repos as Syncthing shared folders
 
 Usage:
-  repo-sync add <repo-path>   Register a repo with the hub server
-  repo-sync add-all           Register all repos under GHQ_ROOT
+  repo-sync init              Sync ~/repos as a single folder (recommended)
+  repo-sync rm-all            Remove ALL synced folders (local + hub)
+  repo-sync add <repo-path>   Register a single repo with the hub server
+  repo-sync add-all           Register all repos under GHQ_ROOT individually
   repo-sync get <git-url>     Clone via ghq then register with Syncthing + hub
   repo-sync adopt             Pull all hub-known repos onto this laptop
   repo-sync list              List all synced folders (id + path)
@@ -340,6 +444,10 @@ Usage:
   repo-sync status            Show sync state for every local folder
   repo-sync hub-doctor        Audit hub folders (devices, versioning)
   repo-sync --help            Show this help
+
+Workflow — switch to root sync:
+  repo-sync rm-all            Remove all per-repo folders
+  repo-sync init              Register ~/repos as a single folder
 
 Environment variables (all optional except STSYNC_SERVER_DEVICE_ID):
   STSYNC_APIKEY              API key — overrides ~/.local/state/syncthing/config.xml
@@ -365,6 +473,8 @@ EOF
 # ---------------------------------------------------------------------------
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     case "${1:-}" in
+        init)                   cmd_init        ;;
+        rm-all)                 cmd_rm_all      ;;
         add)             shift; cmd_add    "$@" ;;
         add-all)                cmd_add_all     ;;
         get)             shift; cmd_get    "$@" ;;
