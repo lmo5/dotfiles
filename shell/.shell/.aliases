@@ -275,5 +275,9 @@ alias gcampf='git add -u && git commit --amend --no-edit && git push --force-wit
 alias c='claude'
 alias cyolo='claude --dangerously-skip-permissions'
 
+# Codex
+alias x='codex'
+alias xyolo='codex --dangerously-bypass-approvals-and-sandbox'
+
 # Alias for cloning GitLab groups via ghq
 alias pglabgrp='ghq_clone_group'
