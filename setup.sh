@@ -437,6 +437,33 @@ install_claude() {
         || error "Failed to install Claude Code."
 }
 
+install_codex() {
+    if ! prompt_yn "Install OpenAI Codex CLI?" n; then
+        return 2
+    fi
+
+    if ! command_exists npm; then
+        log "npm is required for Codex. Install Node.js/npm first, then rerun setup."
+        return 1
+    fi
+
+    if command_exists codex; then
+        log "Codex CLI is already installed."
+    else
+        log "Installing OpenAI Codex CLI..."
+        npm install -g @openai/codex || return 1
+    fi
+
+    # Keep unattended installs non-interactive; authentication can be completed later
+    # with `codex --login`.
+    if [ -z "$DOTFILES_YES" ] && has_tty \
+        && prompt_yn "Sign in to Codex now?" n; then
+        codex --login || log "Codex sign-in was not completed. Run 'codex --login' later."
+    fi
+
+    success "Codex CLI is ready. Run 'codex' to start, or 'codex --login' to authenticate."
+}
+
 install_stern() {
     command_exists stern && { log "stern is already installed."; return; }
     log "Installing stern..."
@@ -1221,7 +1248,7 @@ main() {
     # May re-exec and not return (curl|bash). After this, DOTFILES_DIR is set.
     bootstrap_repo "$@"
 
-    TOTAL=23
+    TOTAL=24
     checkEnv
 
     run_step "Configuring package repositories" setup_repositories
@@ -1239,6 +1266,7 @@ main() {
     run_step "Installing fzf/zoxide/starship"     install_additional_tools
     run_step "Installing lazygit"                 install_lazygit
     run_step "Installing Claude Code"             install_claude
+    run_step "Installing Codex CLI (optional)"    install_codex
     run_step "Installing ghq"                     install_ghq
     run_step "Installing Syncthing"               install_syncthing
     run_step "Setting up Syncthing (pair with server)" setup_syncthing_laptop

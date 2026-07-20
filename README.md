@@ -14,6 +14,10 @@ curl -fsSL https://raw.githubusercontent.com/lmo5/dotfiles/master/setup.sh | bas
 This clones the repo to `~/.dotfiles`, installs the tooling, backs up any existing
 configs, and stows the packages. It is safe to re-run (idempotent).
 
+The installer also offers an optional OpenAI Codex CLI setup. It installs
+`@openai/codex` with npm and, in an interactive terminal, can start `codex --login`.
+In unattended installs, sign in later with `codex --login`.
+
 ### Options
 
 ```bash
