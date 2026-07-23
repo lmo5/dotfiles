@@ -841,13 +841,14 @@ managed_configs() {
         ".config/fastfetch/config.jsonc" ".config/bat/config" \
         ".bashrc" ".bash_logout" ".bash_profile" ".profile" \
         ".config/lazygit/config.yml" ".gitconfig" \
-        ".claude/settings.json" ".claude/statusline-command.sh" ".claude/statusline.sh"
+        ".claude/settings.json" ".claude/statusline-command.sh" ".claude/statusline.sh" \
+        ".config/wezterm/wezterm.lua"
 }
 
 # Stow packages applied by setup_dotfiles — recorded in the backup manifest so
 # rollback knows what to unstow.
 stow_packages() {
-    printf '%s\n' zsh bash shell starship bat localbin git tmux lazygit ghorg claude
+    printf '%s\n' zsh bash shell starship bat localbin git tmux lazygit ghorg claude wezterm
 }
 
 backup_configs() {

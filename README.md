@@ -57,4 +57,4 @@ stow --no-folding -v -R -t "$HOME" <package>
 ```
 
 Packages: `zsh`, `bash`, `shell`, `starship`, `bat`, `git`, `tmux`, `lazygit`,
-`ghorg`, `claude`, `scripts`.
+`ghorg`, `claude`, `wezterm`, `scripts`.
