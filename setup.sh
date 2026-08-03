@@ -833,16 +833,16 @@ setup_direnv() {
     done
 }
 
-# Configs managed by the stow packages — kept in one place so backup and
-# rollback agree on exactly what is touched.
+# Configs managed by the stow packages. Git only reports tracked files, so
+# machine-local ignored files (such as ~/.shell/.exports.local) stay untouched.
 managed_configs() {
-    printf '%s\n' \
-        ".zshrc" ".p10k.zsh" ".config/starship.toml" \
-        ".config/fastfetch/config.jsonc" ".config/bat/config" \
-        ".bashrc" ".bash_logout" ".bash_profile" ".profile" \
-        ".config/lazygit/config.yml" ".gitconfig" \
-        ".claude/settings.json" ".claude/statusline-command.sh" ".claude/statusline.sh" \
-        ".config/wezterm/wezterm.lua"
+    local -a packages=()
+    local pkg
+    while IFS= read -r pkg; do
+        packages+=("$pkg")
+    done < <(stow_packages)
+
+    git -C "$DOTFILES_DIR" ls-files -- "${packages[@]}" | sed 's@^[^/]*/@@'
 }
 
 # Stow packages applied by setup_dotfiles — recorded in the backup manifest so
