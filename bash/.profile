@@ -27,4 +27,4 @@ if [ -d "$HOME/.local/bin" ] ; then
 fi
 . "$HOME/.cargo/env"
 
-. "$HOME/.local/share/../bin/env"
+[ -r "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
