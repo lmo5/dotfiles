@@ -44,6 +44,10 @@ AUR_HELPER=""
 DOTFILES_DIR="${DOTFILES_DIR:-}"
 DOTFILES_YES="${DOTFILES_YES:-}"
 DOTFILES_MINIMAL="${DOTFILES_MINIMAL:-}"
+# Set to 1/true or 0/false to explicitly enable or disable the optional
+# Herdr install. When unset, setup asks interactively (or uses its normal
+# no-TTY default).
+DOTFILES_INSTALL_HERDR="${DOTFILES_INSTALL_HERDR:-}"
 DO_ROLLBACK=""
 NO_CLONE=""
 
@@ -462,6 +466,38 @@ install_codex() {
     fi
 
     success "Codex CLI is ready. Run 'codex' to start, or 'codex --login' to authenticate."
+}
+
+install_herdr() {
+    local enabled=""
+    case "${DOTFILES_INSTALL_HERDR,,}" in
+        1|true|yes|y) enabled=1 ;;
+        0|false|no|n)
+            log "Herdr install disabled (DOTFILES_INSTALL_HERDR=${DOTFILES_INSTALL_HERDR})."
+            return 2
+            ;;
+        "")
+            prompt_yn "Install Herdr (terminal workspace for coding agents)?" n || return 2
+            enabled=1
+            ;;
+        *)
+            log "Invalid DOTFILES_INSTALL_HERDR value '${DOTFILES_INSTALL_HERDR}' (use 1 or 0)." "$RED"
+            return 1
+            ;;
+    esac
+
+    [ "$enabled" = 1 ] || return 2
+
+    # The official installer downloads the platform binary and verifies its
+    # SHA-256 checksum before placing it in ~/.local/bin.
+    if command_exists herdr || [ -x "$HOME/.local/bin/herdr" ]; then
+        log "Herdr is already installed."
+    else
+        log "Installing Herdr..."
+        curl -fsSL https://herdr.dev/install.sh | sh || return 1
+    fi
+
+    success "Herdr is ready. Run 'herdr' to start."
 }
 
 install_stern() {
@@ -1249,7 +1285,7 @@ main() {
     # May re-exec and not return (curl|bash). After this, DOTFILES_DIR is set.
     bootstrap_repo "$@"
 
-    TOTAL=24
+    TOTAL=25
     checkEnv
 
     run_step "Configuring package repositories" setup_repositories
@@ -1268,6 +1304,7 @@ main() {
     run_step "Installing lazygit"                 install_lazygit
     run_step "Installing Claude Code"             install_claude
     run_step "Installing Codex CLI (optional)"    install_codex
+    run_step "Installing Herdr (optional)"        install_herdr
     run_step "Installing ghq"                     install_ghq
     run_step "Installing Syncthing"               install_syncthing
     run_step "Setting up Syncthing (pair with server)" setup_syncthing_laptop

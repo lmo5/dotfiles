@@ -14,9 +14,10 @@ curl -fsSL https://raw.githubusercontent.com/lmo5/dotfiles/master/setup.sh | bas
 This clones the repo to `~/.dotfiles`, installs the tooling, backs up any existing
 configs, and stows the packages. It is safe to re-run (idempotent).
 
-The installer also offers an optional OpenAI Codex CLI setup. It installs
-`@openai/codex` with npm and, in an interactive terminal, can start `codex --login`.
-In unattended installs, sign in later with `codex --login`.
+The installer also offers optional OpenAI Codex CLI and Herdr setups. Codex is
+installed with npm and, in an interactive terminal, can start `codex --login`.
+In unattended installs, sign in later with `codex --login`. Herdr is installed
+with its checksum-verifying official installer into `~/.local/bin`.
 
 ### Options
 
@@ -34,6 +35,16 @@ curl -fsSL .../setup.sh | bash -s -- --minimal    # base deps + dotfiles only
 | `--no-clone` | Use the current directory as the repo |
 
 Environment overrides: `DOTFILES_DIR`, `DOTFILES_YES=1`, `DOTFILES_MINIMAL=1`.
+
+### Herdr toggle
+
+Herdr is optional by default. In an interactive setup, answer its prompt; on a
+fresh or unattended machine, set `DOTFILES_INSTALL_HERDR=1` to install it or
+`DOTFILES_INSTALL_HERDR=0` to explicitly skip it:
+
+```bash
+DOTFILES_INSTALL_HERDR=1 ./setup.sh --yes
+```
 
 ## Backup & rollback
 
